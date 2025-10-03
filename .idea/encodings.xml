@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/backend/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-admin/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-admin/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-common/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-common/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-framework/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-framework/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-generator/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-generator/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-quartz/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-quartz/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-system/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/backend/wzp-system/src/main/resources" charset="UTF-8" />
+  </component>
+</project>
