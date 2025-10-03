@@ -22,7 +22,10 @@ export function addMusic_info(data) {
   return request({
     url: '/music/music_info',
     method: 'post',
-    data: data
+    data: data,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   })
 }
 

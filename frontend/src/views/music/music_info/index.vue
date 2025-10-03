@@ -70,7 +70,9 @@
         </template>
       </el-table-column>
       <el-table-column label="是否私有" align="center" prop="isPrivate" />
-      <el-table-column label="存放路径" align="center" prop="filePath" />
+<!--      <el-table-column label="存放路径" align="center" prop="filePath" />-->
+      <el-table-column label="存放路径" align="center" prop="filePath" show-overflow-tooltip />
+
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['music:music_info:edit']">修改</el-button>
@@ -116,17 +118,15 @@
         <el-form-item label="存放路径" prop="filePath">
           <el-upload
               class="audio-uploader"
-              :auto-upload="true"
+              :auto-upload="false"
               :on-change="handleAudioUpload"
               :before-upload="beforeAudioUpload"
-              :on-success="handleUploadSuccess"
-              :on-error="handleUploadError"
-              :headers="uploadHeaders"
               accept="audio/*"
-              action="http://localhost:8080/common/upload"
+              :limit="1"
+              ref="uploadRef"
           >
           <el-button size="small" type="primary">选择音频文件</el-button>
-          <div v-if="form.filePath" class="audio-file-info">{{ form.filePath }}</div>
+          <div v-if="form.fileName" class="audio-file-info">已选择: {{ form.fileName }}</div>
           </el-upload>
         </el-form-item>
 
@@ -167,6 +167,7 @@ const data = reactive({
     name: null,
   },
   currentUser: {},
+  uploadFile: null,
   rules: {
     name: [
       { required: true, message: "名称不能为空", trigger: "blur" }
@@ -175,7 +176,7 @@ const data = reactive({
       { required: true, message: "是否私有不能为空", trigger: "blur" }
     ],
     filePath: [
-      { required: true, message: "存放路径不能为空", trigger: "blur" }
+      { required: true, message: "请选择音频文件", trigger: "change" }
     ]
   }
 })
@@ -208,8 +209,10 @@ function reset() {
     uploadUserId: null,
     uploadTime: null,
     isPrivate: false,
-    filePath: null
+    filePath: null,
+    fileName: null
   }
+  data.uploadFile = null
   proxy.resetForm("music_infoRef")
 }
 
@@ -256,14 +259,6 @@ function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["music_infoRef"].validate(valid => {
     if (valid) {
-      // 确保上传时间和用户ID已设置
-      if (!form.value.uploadTime) {
-        form.value.uploadTime = new Date()
-      }
-      if (!form.value.uploadUserId) {
-        form.value.uploadUserId = data.currentUser.userId
-      }
-
       if (form.value.id != null) {
         updateMusic_info(form.value).then(response => {
           proxy.$modal.msgSuccess("修改成功")
@@ -271,7 +266,19 @@ function submitForm() {
           getList()
         })
       } else {
-        addMusic_info(form.value).then(response => {
+        if (!data.uploadFile) {
+          proxy.$modal.msgError("请选择音频文件")
+          return
+        }
+        
+        const formData = new FormData()
+        formData.append('file', data.uploadFile)
+        formData.append('name', form.value.name)
+        formData.append('author', form.value.author || '')
+        formData.append('description', form.value.description || '')
+        formData.append('isPrivate', form.value.isPrivate)
+        
+        addMusic_info(formData).then(response => {
           proxy.$modal.msgSuccess("新增成功")
           open.value = false
           getList()
@@ -301,8 +308,9 @@ function handleExport() {
 }
 
 const handleAudioUpload = (file) => {
+  data.uploadFile = file.raw
+  form.value.fileName = file.name
   form.value.filePath = file.name
-  // 这里可以添加文件上传逻辑
 }
 
 const beforeAudioUpload = (file) => {
@@ -310,30 +318,16 @@ const beforeAudioUpload = (file) => {
   const isLt100M = file.size / 1024 / 1024 < 100
 
   if (!isAudio) {
-    ElMessage.error('只能上传音频文件!')
+    proxy.$modal.msgError('只能上传音频文件!')
+    return false
   }
   if (!isLt100M) {
-    ElMessage.error('文件大小不能超过 100MB!')
+    proxy.$modal.msgError('文件大小不能超过 100MB!')
+    return false
   }
 
-  return isAudio && isLt100M
+  return true
 }
-const handleUploadSuccess = (response, file, fileList) => {
-  // 上传成功后处理
-  form.value.filePath = response.data.filePath // 根据实际返回结构调整
-  ElMessage.success('文件上传成功')
-}
-
-const handleUploadError = (error, file, fileList) => {
-  ElMessage.error('文件上传失败: ' + error)
-}
-
-
-const uploadHeaders = computed(() => {
-  return {
-    'Authorization': 'Bearer ' + getToken()
-  }
-})
 
 // 在getList之前获取当前用户信息
 getUserProfile().then(response => {

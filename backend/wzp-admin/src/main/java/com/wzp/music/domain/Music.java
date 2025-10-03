@@ -131,6 +131,7 @@ public class Music extends BaseEntity
 
     @Override
     public String toString() {
+        System.err.println(getFilePath());
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("id", getId())
             .append("name", getName())
