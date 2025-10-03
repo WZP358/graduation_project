@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wzp.music.mapper.MusicMapper">
+    
+    <resultMap type="Music" id="MusicResult">
+        <result property="id"    column="id"    />
+        <result property="name"    column="name"    />
+        <result property="author"    column="author"    />
+        <result property="description"    column="description"    />
+        <result property="uploadUserId"    column="upload_user_id"    />
+        <result property="uploadTime"    column="upload_time"    />
+        <result property="isPrivate"    column="is_private"    />
+        <result property="filePath"    column="file_path"    />
+    </resultMap>
+
+    <sql id="selectMusicVo">
+        select id, name, author, description, upload_user_id, upload_time, is_private, file_path from music
+    </sql>
+
+    <select id="selectMusicList" parameterType="Music" resultMap="MusicResult">
+        <include refid="selectMusicVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and name like concat('%', #{name}, '%')</if>
+        </where>
+    </select>
+    
+    <select id="selectMusicById" parameterType="Long" resultMap="MusicResult">
+        <include refid="selectMusicVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertMusic" parameterType="Music" useGeneratedKeys="true" keyProperty="id">
+        insert into music
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="author != null">author,</if>
+            <if test="description != null">description,</if>
+            <if test="uploadUserId != null">upload_user_id,</if>
+            <if test="uploadTime != null">upload_time,</if>
+            <if test="isPrivate != null">is_private,</if>
+            <if test="filePath != null and filePath != ''">file_path,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="author != null">#{author},</if>
+            <if test="description != null">#{description},</if>
+            <if test="uploadUserId != null">#{uploadUserId},</if>
+            <if test="uploadTime != null">#{uploadTime},</if>
+            <if test="isPrivate != null">#{isPrivate},</if>
+            <if test="filePath != null and filePath != ''">#{filePath},</if>
+         </trim>
+    </insert>
+
+    <update id="updateMusic" parameterType="Music">
+        update music
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="author != null">author = #{author},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="uploadUserId != null">upload_user_id = #{uploadUserId},</if>
+            <if test="uploadTime != null">upload_time = #{uploadTime},</if>
+            <if test="isPrivate != null">is_private = #{isPrivate},</if>
+            <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteMusicById" parameterType="Long">
+        delete from music where id = #{id}
+    </delete>
+
+    <delete id="deleteMusicByIds" parameterType="String">
+        delete from music where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
