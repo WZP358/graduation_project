@@ -8,12 +8,14 @@
         <outputRelativeToContentRoot value="true" />
         <module name="wzp-common" />
         <module name="wzp-generator" />
-        <module name="wzp-framework" />
         <module name="wzp-quartz" />
         <module name="wzp-admin" />
         <module name="wzp-system" />
+        <module name="wzp-framework" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="17" />
+    <bytecodeTargetLevel target="17">
+      <module name="wzp-music" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
