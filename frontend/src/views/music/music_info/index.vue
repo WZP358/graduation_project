@@ -59,7 +59,7 @@
 
     <el-table v-loading="loading" :data="music_infoList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="音乐ID" align="center" prop="id" />
+<!--      <el-table-column label="音乐ID" align="center" prop="id" />-->
       <el-table-column label="名称" align="center" prop="name" />
       <el-table-column label="作者" align="center" prop="author" />
       <el-table-column label="内容介绍" align="center" prop="description" />
@@ -105,6 +105,13 @@
             <el-radio label=false>否</el-radio>
           </el-radio-group>
         </el-form-item>
+        <!-- 隐藏这些字段，但仍保留在el-form中 -->
+        <el-form-item label="上传用户ID" prop="uploadUserId" v-show="false">
+          <el-input v-model="form.uploadUserId" />
+        </el-form-item>
+        <el-form-item label="上传时间" prop="uploadTime" v-show="false">
+          <el-date-picker v-model="form.uploadTime" type="datetime" />
+        </el-form-item>
 
         <el-form-item label="存放路径" prop="filePath">
           <el-upload
@@ -138,6 +145,7 @@
 <script setup name="Music_info">
 import { listMusic_info, getMusic_info, delMusic_info, addMusic_info, updateMusic_info } from "@/api/music/music_info"
 import { getToken } from "@/utils/auth"
+import { getUserProfile } from "@/api/system/user" // 根据实际路径调整
 
 const { proxy } = getCurrentInstance()
 
@@ -158,6 +166,7 @@ const data = reactive({
     pageSize: 10,
     name: null,
   },
+  currentUser: {},
   rules: {
     name: [
       { required: true, message: "名称不能为空", trigger: "blur" }
@@ -226,10 +235,12 @@ function handleSelectionChange(selection) {
 /** 新增按钮操作 */
 function handleAdd() {
   reset()
+  // 自动设置上传用户ID和上传时间
+  form.value.uploadUserId = data.currentUser.userId
+  form.value.uploadTime = new Date()
   open.value = true
   title.value = "添加音乐管理"
 }
-
 /** 修改按钮操作 */
 function handleUpdate(row) {
   reset()
@@ -245,6 +256,14 @@ function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["music_infoRef"].validate(valid => {
     if (valid) {
+      // 确保上传时间和用户ID已设置
+      if (!form.value.uploadTime) {
+        form.value.uploadTime = new Date()
+      }
+      if (!form.value.uploadUserId) {
+        form.value.uploadUserId = data.currentUser.userId
+      }
+
       if (form.value.id != null) {
         updateMusic_info(form.value).then(response => {
           proxy.$modal.msgSuccess("修改成功")
@@ -261,6 +280,7 @@ function submitForm() {
     }
   })
 }
+
 
 /** 删除按钮操作 */
 function handleDelete(row) {
@@ -315,6 +335,12 @@ const uploadHeaders = computed(() => {
   }
 })
 
+// 在getList之前获取当前用户信息
+getUserProfile().then(response => {
+  data.currentUser = response.data
+}).finally(() => {
+  getList()
+})
 
 getList()
 </script>
