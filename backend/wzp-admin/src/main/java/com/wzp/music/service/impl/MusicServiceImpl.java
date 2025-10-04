@@ -11,6 +11,7 @@ import com.wzp.common.utils.StringUtils;
 import com.wzp.music.mapper.MusicMapper;
 import com.wzp.music.domain.Music;
 import com.wzp.music.service.IMusicService;
+import com.wzp.music_anaysis.mapper.BeatdataMapper;
 
 /**
  * 音乐管理Service业务层处理
@@ -25,6 +26,9 @@ public class MusicServiceImpl implements IMusicService
     
     @Autowired
     private MusicMapper musicMapper;
+
+    @Autowired
+    private BeatdataMapper beatdataMapper;
 
     /**
      * 查询音乐管理
@@ -153,18 +157,65 @@ public class MusicServiceImpl implements IMusicService
     @Override
     public int deleteMusicByIds(Long[] ids)
     {
+        for (Long id : ids)
+        {
+            Music music = musicMapper.selectMusicById(id);
+            if (music != null)
+            {
+                if (StringUtils.isNotEmpty(music.getFilePath()))
+                {
+                    File file = new File(music.getFilePath());
+                    if (file.exists())
+                    {
+                        if (file.delete())
+                        {
+                            log.info("成功删除文件: {}", music.getFilePath());
+                        }
+                        else
+                        {
+                            log.warn("删除文件失败: {}", music.getFilePath());
+                        }
+                    }
+                }
+                
+                if (StringUtils.isNotEmpty(music.getName()))
+                {
+                    int deletedCount = beatdataMapper.deleteBeatdataByMusicName(music.getName());
+                    log.info("删除音乐 {} 关联的 {} 条beatdata记录", music.getName(), deletedCount);
+                }
+            }
+        }
         return musicMapper.deleteMusicByIds(ids);
     }
 
-    /**
-     * 删除音乐管理信息
-     * 
-     * @param id 音乐管理主键
-     * @return 结果
-     */
     @Override
     public int deleteMusicById(Long id)
     {
+        Music music = musicMapper.selectMusicById(id);
+        if (music != null)
+        {
+            if (StringUtils.isNotEmpty(music.getFilePath()))
+            {
+                File file = new File(music.getFilePath());
+                if (file.exists())
+                {
+                    if (file.delete())
+                    {
+                        log.info("成功删除文件: {}", music.getFilePath());
+                    }
+                    else
+                    {
+                        log.warn("删除文件失败: {}", music.getFilePath());
+                    }
+                }
+            }
+            
+            if (StringUtils.isNotEmpty(music.getName()))
+            {
+                int deletedCount = beatdataMapper.deleteBeatdataByMusicName(music.getName());
+                log.info("删除音乐 {} 关联的 {} 条beatdata记录", music.getName(), deletedCount);
+            }
+        }
         return musicMapper.deleteMusicById(id);
     }
 }

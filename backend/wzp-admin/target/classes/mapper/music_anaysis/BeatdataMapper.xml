@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wzp.music_anaysis.mapper.BeatdataMapper">
+    
+    <resultMap type="Beatdata" id="BeatdataResult">
+        <result property="id"    column="id"    />
+        <result property="musicName"    column="music_name"    />
+        <result property="beatTimes"    column="beat_times"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="createdBy"    column="created_by"    />
+        <result property="filePath"    column="file_path"    />
+    </resultMap>
+
+    <sql id="selectBeatdataVo">
+        select id, music_name, beat_times, create_time, update_time, created_by, file_path from beatdata
+    </sql>
+
+    <select id="selectBeatdataList" parameterType="Beatdata" resultMap="BeatdataResult">
+        <include refid="selectBeatdataVo"/>
+        <where>  
+            <if test="musicName != null  and musicName != ''"> and music_name like concat('%', #{musicName}, '%')</if>
+            <if test="createdBy != null "> and created_by = #{createdBy}</if>
+        </where>
+    </select>
+    
+    <select id="selectBeatdataById" parameterType="Long" resultMap="BeatdataResult">
+        <include refid="selectBeatdataVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertBeatdata" parameterType="Beatdata" useGeneratedKeys="true" keyProperty="id">
+        insert into beatdata
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="musicName != null and musicName != ''">music_name,</if>
+            <if test="beatTimes != null">beat_times,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="createdBy != null">created_by,</if>
+            <if test="filePath != null and filePath != ''">file_path,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="musicName != null and musicName != ''">#{musicName},</if>
+            <if test="beatTimes != null">#{beatTimes},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="createdBy != null">#{createdBy},</if>
+            <if test="filePath != null and filePath != ''">#{filePath},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBeatdata" parameterType="Beatdata">
+        update beatdata
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="musicName != null and musicName != ''">music_name = #{musicName},</if>
+            <if test="beatTimes != null and beatTimes != ''">beat_times = #{beatTimes},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="createdBy != null">created_by = #{createdBy},</if>
+            <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBeatdataById" parameterType="Long">
+        delete from beatdata where id = #{id}
+    </delete>
+
+    <delete id="deleteBeatdataByIds" parameterType="String">
+        delete from beatdata where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteBeatdataByMusicName" parameterType="String">
+        delete from beatdata where music_name = #{musicName}
+    </delete>
+</mapper>
