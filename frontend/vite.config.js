@@ -45,6 +45,8 @@ export default defineConfig(({ mode, command }) => {
       port: 8082,
       host: true,
       open: true,
+      // 配置 SPA fallback，解决刷新404问题
+      historyApiFallback: true,
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy
         '/captchaImage':{

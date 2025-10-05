@@ -34,9 +34,31 @@ def analyze_audio():
         # 加载音频文件
         y, sr = librosa.load(audio_path)
         
-        # 计算节拍时间
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+        # 计算节拍时间 - 使用更敏感的参数
+        tempo, beat_frames = librosa.beat.beat_track(
+            y=y, 
+            sr=sr,
+            hop_length=512,
+            start_bpm=120,
+            units='frames',
+            tightness=100
+        )
         beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+        
+        # 如果检测到的节拍过少，尝试使用onset检测作为补充
+        if len(beat_times) < 20:
+            onset_frames = librosa.onset.onset_detect(
+                y=y, 
+                sr=sr,
+                hop_length=512,
+                backtrack=True,
+                units='frames'
+            )
+            onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+            
+            # 合并beat_times和onset_times，去重并排序
+            all_times = np.unique(np.concatenate([beat_times, onset_times]))
+            beat_times = all_times
         
         # 将numpy数组转换为Python列表
         beat_times_list = beat_times.tolist()
@@ -46,7 +68,8 @@ def analyze_audio():
             'tempo': float(tempo),
             'beat_times': beat_times_list,
             'beat_count': len(beat_times_list),
-            'audio_path': audio_path
+            'audio_path': audio_path,
+            'audio_duration': float(len(y) / sr)
         })
     
     except Exception as e:

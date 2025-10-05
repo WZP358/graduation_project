@@ -48,13 +48,20 @@ export const constantRoutes = [
     hidden: true
   },
   {
-    path: "/:pathMatch(.*)*",
-    component: () => import('@/views/error/404'),
+    path: '/401',
+    component: () => import('@/views/error/401'),
     hidden: true
   },
   {
-    path: '/401',
-    component: () => import('@/views/error/401'),
+    path: '/analysis/:musicId/:musicName',
+    name: 'Analysis',
+    component: () => import('@/views/analysis/Analysis.vue'),
+    hidden: true,
+    meta: { title: '音频波形分析' }
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    component: () => import('@/views/error/404'),
     hidden: true
   },
   {
@@ -169,6 +176,11 @@ const router = createRouter({
     }
     return { top: 0 }
   },
+})
+
+// 添加路由错误处理
+router.onError((error) => {
+  console.error('路由错误:', error)
 })
 
 export default router

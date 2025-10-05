@@ -67,7 +67,7 @@
 
     <el-table v-loading="loading" :data="beatdataList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="主键ID" align="center" prop="id" />
+<!--      <el-table-column label="主键ID" align="center" prop="id" />-->
       <el-table-column label="音乐名称" align="center" prop="musicName" />
       <el-table-column label="节拍时刻数组" align="center" prop="beatTimes" show-overflow-tooltip />
       <el-table-column label="创建时间" align="center" prop="createTime" width="180">
@@ -84,6 +84,7 @@
       <el-table-column label="存放路径" align="center" prop="filePath" show-overflow-tooltip />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
+          <el-button link type="primary" icon="View" @click="handleViewWaveform(scope.row)">查看波形</el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['music_anaysis:beatdata:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['music_anaysis:beatdata:remove']">删除</el-button>
         </template>
@@ -117,8 +118,11 @@
 
 <script setup name="Beatdata">
 import { listBeatdata, getBeatdata, delBeatdata, addBeatdata, updateBeatdata } from "@/api/music_anaysis/beatdata"
+import { listMusic_info } from "@/api/music/music_info"
+import { nextTick } from 'vue'
 
 const { proxy } = getCurrentInstance()
+const router = useRouter()
 
 const beatdataList = ref([])
 const open = ref(false)
@@ -265,6 +269,25 @@ function handleExport() {
   proxy.download('music_anaysis/beatdata/export', {
     ...queryParams.value
   }, `beatdata_${new Date().getTime()}.xlsx`)
+}
+
+/** 查看波形按钮操作 */
+async function handleViewWaveform(row) {
+  try {
+    const musicList = await listMusic_info({ name: row.musicName })
+    if (musicList.rows && musicList.rows.length > 0) {
+      const musicId = musicList.rows[0].id
+      const targetPath = `/analysis/${musicId}/${encodeURIComponent(row.musicName)}`
+      console.log('准备跳转到波形分析页面:', targetPath)
+      
+      window.location.href = `${window.location.origin}${targetPath}`
+    } else {
+      proxy.$modal.msgError('未找到对应的音乐文件')
+    }
+  } catch (error) {
+    console.error('跳转波形页面失败:', error)
+    proxy.$modal.msgError('获取音乐信息失败')
+  }
 }
 
 getList()

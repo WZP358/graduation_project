@@ -42,3 +42,12 @@ export function delBeatdata(id) {
     method: 'delete'
   })
 }
+
+// 根据音乐名称查询节拍时刻
+export function getBeatdataByMusicName(musicName) {
+  return request({
+    url: '/music_anaysis/beatdata/list',
+    method: 'get',
+    params: { musicName: musicName, pageNum: 1, pageSize: 1 }
+  })
+}
