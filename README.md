@@ -24,8 +24,7 @@
 3. **自动识别算法的准确性**：如何选择合适的信号处理算法，实现高精度的节拍自动识别是一个技术挑战。
 4. **可视化展示的完整性**：需要将自动识别的节拍点与原始波形图有机结合，提供直观的可视化效果。
 5. **自适应学习能力**：更进一步的，我们能不能基于机器学习实现实时节拍识别功能？比如在音频播放过程中，根据已播放部分的节拍模式，实时预测下一个节拍点即将出现的时间并在图像上波形图上标记出来？预计错误是很正常的，那我们能不能总结错误，以提高下次预测的精准度？
-
-
+6. 
 
 ## 对于解决核心问题的初步想法
 
@@ -42,15 +41,13 @@
 
 
 
-
-
 ## 系统核心功能模块
 
 |      模块名称      | 核心功能                                                     |
 | :----------------: | :----------------------------------------------------------- |
-| **音乐波形可视化** | - 使用WaveSurfer.js显示音频波形图<br/>- 支持频谱图(Spectrogram)显示 <br/>- 可以缩放和播放/暂停音频 |
+| **音乐波形可视化** | - 使用WaveSurfer.js显示音频波形图<br/>- 可以缩放和播放/暂停音频 |
 | **节拍可视化展示** | \- 从数据库读取节拍时刻数据<br/>\- 在波形图上标记节拍点位置<br/>\- 提供节拍数据的增删改查接口<br/>\- 支持手动标记与自动识别结果的对比显示 |
-|  **自动节拍识别**  | \- 集成传统信号处理节拍识别算法<br/>\- 提供机器学习节拍识别模型<br/>\- 支持算法参数调整和效果对比 |
+|  **自动节拍识别**  | \- 集成传统信号处理节拍识别算法<br/>\- 提供深度学习节拍识别模型<br/>\- 支持算法参数调整和效果对比 |
 |    **系统管理**    | 用户管理、角色权限管理、操作日志。                           |
 
 
@@ -59,14 +56,15 @@
 
 ### 节拍数据表 (BeatData)
 
-|     字段名     |     类型     |          描述          |
-| :------------: | :----------: | :--------------------: |
-|       id       |  BIGINT(20)  |         主键ID         |
-| audio_filename | VARCHAR(255) |       音频文件名       |
-|   beat_times   |     TEXT     | 节拍时刻数组(JSON格式) |
-|  create_time   |   DATETIME   |        创建时间        |
-|  update_time   |   DATETIME   |        更新时间        |
-|   created_by   |  BIGINT(20)  |       创建用户ID       |
+|   字段名    |     类型     |           描述           |
+| :---------: | :----------: | :----------------------: |
+|     id      |  BIGINT(20)  |          主键ID          |
+|  music_id   |     INT      |          音频ID          |
+| beat_times  |     TEXT     |  节拍时刻数组(JSON格式)  |
+| create_time |   DATETIME   |         创建时间         |
+| update_time |   DATETIME   |         更新时间         |
+| created_by  |  BIGINT(20)  |        创建用户ID        |
+|  file_path  | VARCHAR(255) | 文件在服务器上的存放路径 |
 
 
 
@@ -105,22 +103,60 @@
 
 
 
-### 相关分析记录信息表 (AnalysisRecord)
+```sql
+-- 删除旧表（如果存在）
+DROP TABLE IF EXISTS `music`;
 
-|      字段名       |     类型     |          说明          |
-| :---------------: | :----------: | :--------------------: |
-|        id         |     INT      | 分析记录ID(主键、自增) |
-|       name        | VARCHAR(255) |          名称          |
-|     author_id     |     INT      |      作者ID(外键)      |
-|    description    |     TEXT     |        内容介绍        |
-| analyzed_music_id |     INT      |  所分析的音乐ID(外键)  |
-|   analysis_time   |   DATETIME   |        分析时间        |
-|    is_private     |   BOOLEAN    |        是否私有        |
-|     file_path     | VARCHAR(255) | 文件所在服务器存放路径 |
+-- 创建新音乐表
+CREATE TABLE `music` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '音乐ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '名称',
+  `author` VARCHAR(255) NOT NULL COMMENT '作者',
+  `description` TEXT COMMENT '内容介绍',
+  `upload_user_id` BIGINT NOT NULL COMMENT '上传用户ID',
+  `upload_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  `is_private` BOOLEAN DEFAULT FALSE COMMENT '是否私有',
+  `file_path` VARCHAR(255) NOT NULL COMMENT '存放路径',
 
-说明: 上表用于存储分析记录信息。
+  -- 确保文件路径唯一（外键约束必需）
+  UNIQUE INDEX `idx_file_path_unique` (`file_path`),
+  UNIQUE INDEX `idx_music_name_unique` (`name`),
+  -- 用户外键约束
+  FOREIGN KEY (`upload_user_id`) REFERENCES `sys_user`(`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 添加索引优化查询
+ALTER TABLE `music` ADD INDEX `idx_upload_user_id` (`upload_user_id`);
 
 
+
+
+-- 删除旧 BeatData 表（如果存在）
+DROP TABLE IF EXISTS `BeatData`;
+
+-- 创建新的节拍数据表 (BeatData)
+CREATE TABLE `BeatData` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+  `music_name` VARCHAR(255) NOT NULL COMMENT '音乐名称',
+  `beat_times` TEXT NOT NULL COMMENT '节拍时刻数组(JSON格式)',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `created_by` BIGINT NOT NULL COMMENT '创建用户ID',
+  `file_path` VARCHAR(255) NOT NULL COMMENT '文件在服务器上的存放路径',
+
+  UNIQUE INDEX `idx_music_name_unique`(`music_name`)
+    
+  -- 外键约束（关联music表的音乐名称）
+  FOREIGN KEY (`music_name`) REFERENCES `music`(`name`) ON DELETE CASCADE ON UPDATE CASCADE,
+
+  -- 外键约束（关联music表的文件路径）
+  FOREIGN KEY (`file_path`) REFERENCES `music`(`file_path`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 添加索引优化查询性能
+ALTER TABLE `BeatData` ADD INDEX `idx_music_name` (`music_name`);
+ALTER TABLE `BeatData` ADD INDEX `idx_file_path` (`file_path`);
+```
 
 
 
@@ -138,10 +174,11 @@
 
 ## 项目进展
 
-- [ ] **实现对“节拍时刻”的自动识别和本地存储**
-- [ ] **展示“节拍时刻”在原始音频的波形图上**
+- [x] **对音频文件进行本地存储**
+- [x] **实现对“节拍时刻”的自动识别和本地存储**
+- [x] **展示“节拍时刻”在原始音频的波形图上**
 - [ ] **基于能量包络的峰值检测 VS 基于CRNN的节拍跟踪 的算法比较,以自动识别某音频的“节拍时刻”**
-- [ ] **系统管理**
+- [x] **系统管理**
 - [ ] **实时节拍预测与自学习**
 
 
@@ -180,39 +217,85 @@
 3. **调用节拍检测库 (`librosa`示例)：**
 
     ```python
+    from flask import Flask, request, jsonify
     import librosa
+    import numpy as np
+    import os
+    import re
     
-    def detect_and_store_beats(audio_file_path):
-        # 1. 加载音频文件
-        y, sr = librosa.load(audio_file_path)  # y是音频波形数据，sr是采样率
+    app = Flask(__name__)
     
-        # 2. 使用librosa检测节拍时刻
-        tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
-        # beat_frames 是节拍出现的帧序号列表
+    @app.route('/get_beatData', methods=['GET', 'POST'])
+    def analyze_audio():
+        # 支持GET和POST两种请求方式
+        if request.method == 'GET':
+            # 从查询参数获取路径
+            audio_path = request.args.get('audio_path')
+        else:
+            # 从JSON体获取路径
+            data = request.get_json(silent=True)
+            audio_path = data.get('audio_path') if data else None
+        
+        if not audio_path:
+            return jsonify({'error': 'No audio path provided'}), 400
+        
+        # 处理路径中的转义问题 - 使用字符串替换代替正则表达式
+        audio_path = audio_path.replace('\\', '\\\\')  # 替换单反斜杠为双反斜杠
+        audio_path = audio_path.replace('/', os.path.sep)  # 替换正斜杠为系统分隔符
+        
+        # 处理路径中的引号问题
+        audio_path = audio_path.strip("'\"")
+        
+        if not os.path.exists(audio_path):
+            return jsonify({'error': f'File not found: {audio_path}'}), 404
+        
+        try:
+            # 加载音频文件
+            y, sr = librosa.load(audio_path)
+            
+            # 计算节拍时间 - 使用更敏感的参数
+            tempo, beat_frames = librosa.beat.beat_track(
+                y=y, 
+                sr=sr,
+                hop_length=512,
+                start_bpm=120,
+                units='frames',
+                tightness=100
+            )
+            beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+            
+            # 如果检测到的节拍过少，尝试使用onset检测作为补充
+            if len(beat_times) < 20:
+                onset_frames = librosa.onset.onset_detect(
+                    y=y, 
+                    sr=sr,
+                    hop_length=512,
+                    backtrack=True,
+                    units='frames'
+                )
+                onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+                
+                # 合并beat_times和onset_times，去重并排序
+                all_times = np.unique(np.concatenate([beat_times, onset_times]))
+                beat_times = all_times
+            
+            # 将numpy数组转换为Python列表
+            beat_times_list = beat_times.tolist()
+            beat_times_list = [round(time, 2) for time in beat_times_list]
+            
+            return jsonify({
+                'tempo': float(tempo),
+                'beat_times': beat_times_list,
+                'beat_count': len(beat_times_list),
+                'audio_path': audio_path,
+                'audio_duration': float(len(y) / sr)
+            })
+        
+        except Exception as e:
+            return jsonify({'error': str(e), 'audio_path': audio_path}), 500
     
-        # 3. 将帧序号转换为时间（秒）
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
-        # beat_times 现在就是你要的列表，如 [2.3, 4.5, 6.7, ...]
-    
-        # 4. 获取音频文件名 (从路径中提取)
-        audio_filename = os.path.basename(audio_file_path)
-    
-        # 5. 连接数据库
-        # ... (使用如 pymysql, sqlalchemy, Django ORM等)
-    
-        # 6. 将 audio_filename 和 beat_times (转为JSON字符串或直接存JSON类型) 插入数据库
-        # 示例 (使用SQLAlchemy ORM 风格)：
-        new_beat_detection = BeatDetection(
-            audio_filename=audio_filename,
-            beat_times=json.dumps(beat_times.tolist()),  # 如果字段是TEXT
-            # 或者 beat_times=beat_times.tolist()       # 如果ORM支持直接存list到JSON字段
-            tempo=tempo
-        )
-        db.session.add(new_beat_detection)
-        db.session.commit()
-    
-        # 7. (可选) 返回成功信息或结果给前端
-        return {"status": "success", "beat_times": beat_times.tolist(), "tempo": tempo}
+    if __name__ == '__main__':
+        app.run(host='localhost', port=5000, debug=True)
     ```
 
 ##### 第四步： 数据库交互
@@ -231,8 +314,6 @@
     - 接收音频文件或文件名。
     - 调用库进行节拍检测，得到时间列表。
     - 将文件名和时间列表存入数据库。
-
-
 
 
 
@@ -277,26 +358,7 @@
 ##### 代码实现
 
 ```python
-def energy_based_beat_detection(audio_path):
-    import numpy as np
-    from scipy.signal import find_peaks, hilbert
-    
-    # 1. 加载音频并计算短时能量
-    y, sr = librosa.load(audio_path)
-    hop_length = 512
-    frame_energy = np.sum(np.abs(librosa.stft(y, hop_length=hop_length))**2, axis=0)
-    
-    # 2. 提取包络线（希尔伯特变换）
-    analytic_signal = hilbert(frame_energy)
-    envelope = np.abs(analytic_signal)
-    
-    # 3. 平滑包络并找峰值
-    smoothed = librosa.util.smooth(envelope, window_len=5)
-    peaks, _ = find_peaks(smoothed, distance=sr//hop_length//3)  # 最小节拍间隔
-    
-    # 4. 转换为时间点
-    beat_times = librosa.frames_to_time(peaks, hop_length=hop_length, sr=sr)
-    return beat_times
+暂无
 ```
 
 ------
@@ -313,17 +375,7 @@ def energy_based_beat_detection(audio_path):
 ##### 代码实现
 
 ```python
-def deep_beat_detection(audio_path):
-    from madmom.features.beats import RNNBeatProcessor, BeatTrackingProcessor
-    
-    # 1. 使用预训练RNN模型提取节拍概率
-    proc = RNNBeatProcessor()
-    act = proc(audio_path)  # 输出节拍激活曲线
-    
-    # 2. 用动态规划解码节拍序列
-    beat_tracker = BeatTrackingProcessor(fps=100)
-    beat_times = beat_tracker(act)
-    return beat_times
+暂无
 ```
 
 
