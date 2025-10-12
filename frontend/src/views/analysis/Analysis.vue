@@ -79,6 +79,9 @@ let speedArray: number[][] = []
 let waveformInstance = null
 let wfRegionInstance = null
 let currentBeatData = null
+let selectedRegion = null
+let keyPressInterval = null
+let keyPressSpeed = 100
 
 console.log('Analysis页面初始化', { musicId, musicName })
 
@@ -180,19 +183,7 @@ onMounted(async () => {
             resize: false
         })
         
-        region.on('click', (e) => {
-            if (e.button === 2) {
-                e.preventDefault()
-            }
-        })
-        
-        region.element.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            if (confirm(`删除节拍点 ${clickTime.toFixed(2)}s?`)) {
-                region.remove()
-                layer.msg('节拍点已删除，请点击"保存节拍修改"保存', { icon: 1 })
-            }
-        })
+        setupRegionEvents(region, waveform)
         
         layer.msg('已添加节拍点，请点击"保存节拍修改"保存', { icon: 1 })
     })
@@ -220,19 +211,7 @@ onMounted(async () => {
                         resize: false
                     });
                     
-                    region.on('click', (e) => {
-                        if (e.button === 2) {
-                            e.preventDefault()
-                        }
-                    })
-                    
-                    region.element.addEventListener('contextmenu', (e) => {
-                        e.preventDefault()
-                        if (confirm(`删除节拍点 ${time.toFixed(2)}s?`)) {
-                            region.remove()
-                            layer.msg('节拍点已删除，请点击"保存节拍修改"保存', { icon: 1 })
-                        }
-                    })
+                    setupRegionEvents(region, waveform)
                 });
                 
                 // 自动计算速度曲线数据
@@ -277,10 +256,119 @@ onMounted(async () => {
         })
     })
 
+    function setupRegionEvents(region, waveform) {
+        region.on('update-end', () => {
+            region.setOptions({
+                content: `${region.start.toFixed(2)}s`
+            })
+        })
+        
+        region.on('click', (e) => {
+            if (e.button === 2) {
+                e.preventDefault()
+            }
+            selectedRegion = region
+        })
+        
+        region.element.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            selectedRegion = region
+            
+            const menu = document.createElement('div')
+            menu.className = 'context-menu'
+            menu.style.cssText = `
+                position: fixed;
+                left: ${e.clientX}px;
+                top: ${e.clientY}px;
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                z-index: 10000;
+                min-width: 120px;
+            `
+            
+            const moveOption = document.createElement('div')
+            moveOption.textContent = '键盘移动 (←→)'
+            moveOption.style.cssText = `
+                padding: 8px 16px;
+                cursor: pointer;
+                border-bottom: 1px solid #eee;
+            `
+            moveOption.onmouseover = () => moveOption.style.background = '#f5f5f5'
+            moveOption.onmouseout = () => moveOption.style.background = 'white'
+            moveOption.onclick = () => {
+                document.body.removeChild(menu)
+                layer.msg('请使用键盘左右键移动节拍点，每次移动0.01s', { icon: 1 })
+            }
+            
+            const deleteOption = document.createElement('div')
+            deleteOption.textContent = '删除'
+            deleteOption.style.cssText = `
+                padding: 8px 16px;
+                cursor: pointer;
+                color: #f56c6c;
+            `
+            deleteOption.onmouseover = () => deleteOption.style.background = '#f5f5f5'
+            deleteOption.onmouseout = () => deleteOption.style.background = 'white'
+            deleteOption.onclick = () => {
+                document.body.removeChild(menu)
+                if (confirm(`删除节拍点 ${region.start.toFixed(2)}s?`)) {
+                    region.remove()
+                    selectedRegion = null
+                    layer.msg('节拍点已删除，请点击"保存节拍修改"保存', { icon: 1 })
+                }
+            }
+            
+            menu.appendChild(moveOption)
+            menu.appendChild(deleteOption)
+            document.body.appendChild(menu)
+            
+            const closeMenu = (event) => {
+                if (menu.parentNode && !menu.contains(event.target)) {
+                    document.body.removeChild(menu)
+                    document.removeEventListener('click', closeMenu)
+                }
+            }
+            setTimeout(() => {
+                document.addEventListener('click', closeMenu)
+            }, 0)
+        })
+    }
+
     let bitCount = 0
     let lastBitPosition = 0
     const keydownHandler = (e: KeyboardEvent) => {
-        if (e.key === 'a' || e.key === 's' || e.key === 'd' || e.key === 'f') {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            if (!selectedRegion) {
+                layer.msg('请先右键选择一个节拍点', { icon: 2 })
+                return
+            }
+            
+            e.preventDefault()
+            
+            const moveStep = 0.01
+            const direction = e.key === 'ArrowLeft' ? -1 : 1
+            const newStart = Math.max(0, selectedRegion.start + direction * moveStep)
+            const duration = waveform.getDuration()
+            
+            if (newStart <= duration) {
+                selectedRegion.setOptions({
+                    start: newStart,
+                    end: newStart + 0.01,
+                    content: `${newStart.toFixed(2)}s`
+                })
+                
+                if (!keyPressInterval) {
+                    keyPressSpeed = 100
+                    keyPressInterval = setInterval(() => {
+                        if (keyPressSpeed > 20) {
+                            keyPressSpeed -= 10
+                        }
+                    }, 200)
+                }
+            }
+        } else if (e.key === 'a' || e.key === 's' || e.key === 'd' || e.key === 'f') {
             const currentTime = waveform.getCurrentTime();
             const speed = caculateSpeed(lastBitPosition, currentTime)
             // console.log(speedArray)
@@ -304,13 +392,26 @@ onMounted(async () => {
             bitCount++;
         }
     }
+    
+    const keyupHandler = (e: KeyboardEvent) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            if (keyPressInterval) {
+                clearInterval(keyPressInterval)
+                keyPressInterval = null
+                keyPressSpeed = 100
+            }
+        }
+    }
+    
     document.addEventListener('keydown', keydownHandler)
+    document.addEventListener('keyup', keyupHandler)
 
-
-
-    // Cleanup the event listener when the component is unmounted
     onUnmounted(() => {
         document.removeEventListener('keydown', keydownHandler)
+        document.removeEventListener('keyup', keyupHandler)
+        if (keyPressInterval) {
+            clearInterval(keyPressInterval)
+        }
     })
 })
 </script>
