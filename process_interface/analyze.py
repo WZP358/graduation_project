@@ -63,9 +63,13 @@ def analyze_audio():
         # 将numpy数组转换为Python列表
         beat_times_list = beat_times.tolist()
         beat_times_list = [round(time, 2) for time in beat_times_list]
-        
+        if isinstance(tempo, (list, tuple, np.ndarray)):
+            tempo_value = float(tempo[0])
+        else:
+            tempo_value = float(tempo)
+
         return jsonify({
-            'tempo': float(tempo),
+            'tempo': tempo_value,
             'beat_times': beat_times_list,
             'beat_count': len(beat_times_list),
             'audio_path': audio_path,

@@ -23,7 +23,7 @@ module.exports = {
    * 是否显示 tagsView
    */
   tagsView: true,
-  
+
   /**
    * 显示页签图标
    */
@@ -52,5 +52,5 @@ module.exports = {
   /**
    * 底部版权文本内容
    */
-  footerContent: 'Copyright © 2018-2025 RuoYi. All Rights Reserved.'
+  footerContent: 'code by WZP'
 }
