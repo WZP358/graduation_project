@@ -214,6 +214,10 @@ function reset() {
   }
   data.uploadFile = null
   proxy.resetForm("music_infoRef")
+  
+  if (proxy.$refs.uploadRef) {
+    proxy.$refs.uploadRef.clearFiles()
+  }
 }
 
 /** 搜索按钮操作 */

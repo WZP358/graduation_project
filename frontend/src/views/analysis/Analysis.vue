@@ -55,7 +55,7 @@ function saveBeats() {
     
     const regions = wfRegionInstance.getRegions()
     const beatTimes = regions
-        .map(r => r.start)
+        .map(r => parseFloat(r.start.toFixed(2)))
         .sort((a, b) => a - b)
     
     const updateData = {
