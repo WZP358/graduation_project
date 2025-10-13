@@ -33,6 +33,16 @@ const defaultOptions = {
     dragPointStroke: 'rgba(255, 255, 255, 0.8)'
 }
 
+function findLast<T>(array: T[], predicate: (item: T) => boolean): T | undefined {
+    for (let i = array.length - 1; i >= 0; i--) {
+        if (predicate(array[i])) {
+            return array[i];
+        }
+    }
+    return undefined;
+}
+
+
 type Options = EnvelopePluginOptions & typeof defaultOptions
 
 export type EnvelopePluginEvents = BasePluginEvents & {
@@ -245,7 +255,11 @@ class Polyline extends EventEmitter<{
 
             // Don't allow to drag past the next or previous point
             const next = Array.from(points).find((point) => point.x > newPoint.x)
-            const prev = Array.from(points).findLast((point) => point.x < newPoint.x)
+            // const prev = Array.from(points).findLast((point) => point.x < newPoint.x)
+
+            const prev = findLast(Array.from(points), (point) => point.x < newPoint.x)
+
+
             if ((next && newX >= next.x) || (prev && newX <= prev.x)) {
                 return
             }
@@ -318,7 +332,13 @@ class EnvelopePlugin extends BasePlugin<EnvelopePluginEvents, EnvelopePluginOpti
         if (!point.id) point.id = randomId()
 
         // Insert the point in the correct position to keep the array sorted
-        const index = this.points.findLastIndex((p) => p.time < point.time)
+        // const index = this.points.findLastIndex((p) => p.time < point.time)
+
+// 改为:
+        const index = this.points.reduce((lastIndex, p, i) => p.time < point.time ? i : lastIndex, -1)
+
+
+
         this.points.splice(index + 1, 0, point)
 
         this.emitPoints()
@@ -469,7 +489,11 @@ class EnvelopePlugin extends BasePlugin<EnvelopePluginEvents, EnvelopePluginOpti
         if (!nextPoint) {
             nextPoint = { time: this.waveform.getDuration() || 0, volume: 0 }
         }
-        let prevPoint = this.points.findLast((point) => point.time <= time)
+        // let prevPoint = this.points.findLast((point) => point.time <= time)
+
+        let prevPoint = [...this.points].reverse().find((point) => point.time <= time)
+
+
         if (!prevPoint) {
             prevPoint = { time: 0, volume: 0 }
         }
