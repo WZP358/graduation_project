@@ -10,7 +10,7 @@
             </div>
 
             <div class="control-panel">
-                <h3 class="panel-title">控制面板</h3>-
+                <h3 class="panel-title">控制面板</h3>
                 
                 <div class="control-group">
                     <el-button type="primary" id="playPause">播放/暂停</el-button>

@@ -86,8 +86,7 @@ public class MusicController extends BaseController
     public AjaxResult add(@RequestParam("file") MultipartFile file,
                           @RequestParam("name") String name,
                           @RequestParam(value = "author", required = false) String author,
-                          @RequestParam(value = "description", required = false) String description,
-                          @RequestParam(value = "isPrivate", defaultValue = "false") Boolean isPrivate)
+                          @RequestParam(value = "description", required = false) String description)
     {
         try
         {
@@ -101,7 +100,6 @@ public class MusicController extends BaseController
             music.setDescription(description);
             music.setUploadUserId(getUserId());
             music.setUploadTime(new Date());
-            music.setIsPrivate(isPrivate);
             music.setFilePath(realTempPath);
             
             return toAjax(musicService.insertMusic(music));

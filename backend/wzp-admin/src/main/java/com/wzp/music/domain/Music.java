@@ -41,9 +41,7 @@ public class Music extends BaseEntity
     @Excel(name = "上传时间", width = 30, dateFormat = "yyyy-MM-dd")
     private Date uploadTime;
 
-    /** 是否私有 */
-    @Excel(name = "是否私有")
-    private Boolean isPrivate;
+
 
     /** 存放路径 */
     @Excel(name = "存放路径")
@@ -109,15 +107,7 @@ public class Music extends BaseEntity
         return uploadTime;
     }
 
-    public void setIsPrivate(Boolean isPrivate) 
-    {
-        this.isPrivate = isPrivate;
-    }
 
-    public Boolean getIsPrivate() 
-    {
-        return isPrivate;
-    }
 
     public void setFilePath(String filePath) 
     {
@@ -139,7 +129,6 @@ public class Music extends BaseEntity
             .append("description", getDescription())
             .append("uploadUserId", getUploadUserId())
             .append("uploadTime", getUploadTime())
-            .append("isPrivate", getIsPrivate())
             .append("filePath", getFilePath())
             .toString();
     }

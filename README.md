@@ -96,7 +96,6 @@
 |  description   |     TEXT     |            内容介绍            |
 | upload_user_id |     INT      | 上传用户ID（外键，关联用户表） |
 |  upload_time   |   DATETIME   |            上传时间            |
-|   is_private   |   BOOLEAN    |            是否私有            |
 |   file_path    | VARCHAR(255) |    文件在服务器上的存放路径    |
 
 说明：上表用于存储音乐记录信息
@@ -115,7 +114,6 @@ CREATE TABLE `music` (
   `description` TEXT COMMENT '内容介绍',
   `upload_user_id` BIGINT NOT NULL COMMENT '上传用户ID',
   `upload_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
-  `is_private` BOOLEAN DEFAULT FALSE COMMENT '是否私有',
   `file_path` VARCHAR(255) NOT NULL COMMENT '存放路径',
 
   -- 确保文件路径唯一（外键约束必需）

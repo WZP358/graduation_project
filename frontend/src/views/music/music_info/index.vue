@@ -69,7 +69,6 @@
           <span>{{ parseTime(scope.row.uploadTime, '{y}-{m}-{d}') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="是否私有" align="center" prop="isPrivate" />
 <!--      <el-table-column label="存放路径" align="center" prop="filePath" />-->
       <el-table-column label="存放路径" align="center" prop="filePath" show-overflow-tooltip />
 
@@ -101,12 +100,7 @@
         <el-form-item label="内容介绍" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入内容" />
         </el-form-item>
-        <el-form-item label="是否私有" prop="isPrivate">
-          <el-radio-group v-model="form.isPrivate">
-            <el-radio label=true>是</el-radio>
-            <el-radio label=false>否</el-radio>
-          </el-radio-group>
-        </el-form-item>
+
         <!-- 隐藏这些字段，但仍保留在el-form中 -->
         <el-form-item label="上传用户ID" prop="uploadUserId" v-show="false">
           <el-input v-model="form.uploadUserId" />
@@ -172,9 +166,6 @@ const data = reactive({
     name: [
       { required: true, message: "名称不能为空", trigger: "blur" }
     ],
-    isPrivate: [
-      { required: true, message: "是否私有不能为空", trigger: "blur" }
-    ],
     filePath: [
       { required: true, message: "请选择音频文件", trigger: "change" }
     ]
@@ -208,7 +199,6 @@ function reset() {
     description: null,
     uploadUserId: null,
     uploadTime: null,
-    isPrivate: false,
     filePath: null,
     fileName: null
   }
@@ -280,7 +270,6 @@ function submitForm() {
         formData.append('name', form.value.name)
         formData.append('author', form.value.author || '')
         formData.append('description', form.value.description || '')
-        formData.append('isPrivate', form.value.isPrivate)
         
         addMusic_info(formData).then(response => {
           proxy.$modal.msgSuccess("新增成功")
