@@ -45,3 +45,7 @@ export function delMusic_info(id) {
     method: 'delete'
   })
 }
+
+export function listMusic(query) {
+  return listMusic_info(query)
+}

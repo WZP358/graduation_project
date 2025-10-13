@@ -60,6 +60,13 @@ export const constantRoutes = [
     meta: { title: '音频波形分析' }
   },
   {
+    path: '/analysis/compare',
+    name: 'CompareAnalysis',
+    component: () => import('@/views/analysis/CompareAnalysis.vue'),
+    hidden: true,
+    meta: { title: '节拍数据对比' }
+  },
+  {
     path: "/:pathMatch(.*)*",
     component: () => import('@/views/error/404'),
     hidden: true

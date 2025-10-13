@@ -51,3 +51,12 @@ export function getBeatdataByMusicName(musicName) {
     params: { musicName: musicName, pageNum: 1, pageSize: 1 }
   })
 }
+
+// 批量查询节拍时刻详细（通过ID列表）
+export function getBeatdataByIds(ids) {
+  return request({
+    url: '/music_anaysis/beatdata/listByIds',
+    method: 'get',
+    params: { ids: ids }
+  })
+}

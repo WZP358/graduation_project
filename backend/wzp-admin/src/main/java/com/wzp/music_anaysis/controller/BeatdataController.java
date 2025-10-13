@@ -101,4 +101,30 @@ public class BeatdataController extends BaseController
     {
         return toAjax(beatdataService.deleteBeatdataByIds(ids));
     }
+
+    /**
+     * 根据ID列表批量查询节拍时刻
+     */
+    @PreAuthorize("@ss.hasPermi('music_anaysis:beatdata:query')")
+    @GetMapping("/listByIds")
+    public AjaxResult listByIds(String ids)
+    {
+        if (ids == null || ids.trim().isEmpty()) {
+            return error("ID列表不能为空");
+        }
+        String[] idArray = ids.split(",");
+        List<Beatdata> list = new java.util.ArrayList<>();
+        for (String id : idArray) {
+            try {
+                Long beatdataId = Long.parseLong(id.trim());
+                Beatdata beatdata = beatdataService.selectBeatdataById(beatdataId);
+                if (beatdata != null) {
+                    list.add(beatdata);
+                }
+            } catch (NumberFormatException e) {
+                logger.error("Invalid ID format: " + id);
+            }
+        }
+        return success(list);
+    }
 }
