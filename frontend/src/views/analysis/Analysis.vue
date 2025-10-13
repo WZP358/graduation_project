@@ -39,7 +39,7 @@ import HoverPlugin from '@/views/analysis/waveform/plugins/hover';
 import RegionsPlugin from '@/views/analysis/waveform/plugins/regions';
 import Options from './components/Options.vue';
 import Result from './components/Result.vue';
-import { getBeatdataByMusicName, updateBeatdata } from '@/api/music_anaysis/beatdata';
+import { getBeatdataByMusicName, updateBeatdata, addBeatdata } from '@/api/music_anaysis/beatdata';
 
 const RefResult = ref(null)
 function callRedraw() {
@@ -47,32 +47,60 @@ function callRedraw() {
 }
 
 function saveBeats() {
-    if (!wfRegionInstance || !currentBeatData) {
+    if (!wfRegionInstance) {
         layer.msg('没有节拍数据可保存', { icon: 2 })
         return
     }
     
     const regions = wfRegionInstance.getRegions()
+    if (regions.length === 0) {
+        layer.msg('请至少添加一个节拍点', { icon: 2 })
+        return
+    }
+    
     const beatTimes = regions
         .map(r => parseFloat(r.start.toFixed(2)))
         .sort((a, b) => a - b)
     
-    const updateData = {
-        ...currentBeatData,
-        beatTimes: JSON.stringify(beatTimes)
+    if (isCreateMode) {
+        const newData = {
+            musicName: musicName,
+            beatTimes: JSON.stringify(beatTimes),
+            detectionMode: 'manual'
+        }
+        
+        addBeatdata(newData).then(response => {
+            layer.msg('创建成功', { icon: 1 })
+            console.log('节拍数据已创建:', beatTimes)
+            isCreateMode = false
+            currentBeatData = response.data
+        }).catch(error => {
+            layer.msg('创建失败: ' + error, { icon: 2 })
+        })
+    } else {
+        if (!currentBeatData) {
+            layer.msg('没有节拍数据可更新', { icon: 2 })
+            return
+        }
+        
+        const updateData = {
+            ...currentBeatData,
+            beatTimes: JSON.stringify(beatTimes)
+        }
+        
+        updateBeatdata(updateData).then(response => {
+            layer.msg('保存成功', { icon: 1 })
+            console.log('节拍数据已更新:', beatTimes)
+        }).catch(error => {
+            layer.msg('保存失败: ' + error, { icon: 2 })
+        })
     }
-    
-    updateBeatdata(updateData).then(response => {
-        layer.msg('保存成功', { icon: 1 })
-        console.log('节拍数据已更新:', beatTimes)
-    }).catch(error => {
-        layer.msg('保存失败: ' + error, { icon: 2 })
-    })
 }
 
 const route = useRoute();
 let musicId = route.params.musicId;
 let musicName = route.params.musicName;
+let isCreateMode = route.query.mode === 'create';
 let bitCount
 let speedArray: number[][] = []
 let waveformInstance = null
@@ -82,7 +110,7 @@ let selectedRegion = null
 let keyPressInterval = null
 let keyPressSpeed = 100
 
-console.log('Analysis页面初始化', { musicId, musicName })
+console.log('Analysis页面初始化', { musicId, musicName, isCreateMode })
 
 let myOptions = reactive({
     color: "1",
@@ -188,50 +216,55 @@ onMounted(async () => {
     })
 
     waveform.once('decode', async () => {
-        console.log('音频解码完成，开始加载节拍数据')
-        console.log('音乐名称:', musicName)
-        try {
-            const response = await getBeatdataByMusicName(musicName);
-            console.log('节拍数据API响应:', response);
-            
-            if (response.rows && response.rows.length > 0) {
-                currentBeatData = response.rows[0]
-                const beatTimes = JSON.parse(currentBeatData.beatTimes);
-                console.log('加载节拍数据:', beatTimes);
-                console.log('节拍数量:', beatTimes.length);
+        console.log('音频解码完成')
+        
+        if (!isCreateMode) {
+            console.log('开始加载节拍数据')
+            console.log('音乐名称:', musicName)
+            try {
+                const response = await getBeatdataByMusicName(musicName);
+                console.log('节拍数据API响应:', response);
                 
-                beatTimes.forEach((time, index) => {
-                    const region = wfRegion.addRegion({
-                        start: time,
-                        end: time + 0.01,
-                        content: `${time.toFixed(2)}s`,
-                        color: 'rgba(255, 0, 0, 0.6)',
-                        drag: true,
-                        resize: false
+                if (response.rows && response.rows.length > 0) {
+                    currentBeatData = response.rows[0]
+                    const beatTimes = JSON.parse(currentBeatData.beatTimes);
+                    console.log('加载节拍数据:', beatTimes);
+                    console.log('节拍数量:', beatTimes.length);
+                    
+                    beatTimes.forEach((time, index) => {
+                        const region = wfRegion.addRegion({
+                            start: time,
+                            end: time + 0.01,
+                            content: `${time.toFixed(2)}s`,
+                            color: 'rgba(255, 0, 0, 0.6)',
+                            drag: true,
+                            resize: false
+                        });
+                        
+                        setupRegionEvents(region, waveform)
                     });
                     
-                    setupRegionEvents(region, waveform)
-                });
-                
-                // 自动计算速度曲线数据
-                for (let i = 1; i < beatTimes.length; i++) {
-                    const interval = beatTimes[i] - beatTimes[i - 1];
-                    const bpm = 60 / interval;
-                    speedArray.push([i, bpm]);
+                    for (let i = 1; i < beatTimes.length; i++) {
+                        const interval = beatTimes[i] - beatTimes[i - 1];
+                        const bpm = 60 / interval;
+                        speedArray.push([i, bpm]);
+                    }
+                    console.log('速度曲线数据:', speedArray);
+                    
+                    if (speedArray.length > 0 && RefResult.value) {
+                        setTimeout(() => {
+                            RefResult.value.redraw();
+                        }, 100);
+                    }
+                } else {
+                    console.warn('未找到节拍数据，响应:', response);
                 }
-                console.log('速度曲线数据:', speedArray);
-                
-                // 自动绘制速度曲线
-                if (speedArray.length > 0 && RefResult.value) {
-                    setTimeout(() => {
-                        RefResult.value.redraw();
-                    }, 100);
-                }
-            } else {
-                console.warn('未找到节拍数据，响应:', response);
+            } catch (error) {
+                console.error('加载节拍数据失败:', error);
             }
-        } catch (error) {
-            console.error('加载节拍数据失败:', error);
+        } else {
+            console.log('创建模式，不加载现有节拍数据')
+            layer.msg('请通过双击波形或按w/a/s/d键添加节拍点', { icon: 1, time: 3000 })
         }
 
         const playPause = document.getElementById('playPause')

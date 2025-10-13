@@ -38,6 +38,9 @@ public class Beatdata extends BaseEntity
     @Excel(name = "创建用户名称")
     private String creatorName;
 
+    /** 识别方式 */
+    private String detectionMode;
+
     public void setId(Long id) 
     {
         this.id = id;
@@ -98,6 +101,16 @@ public class Beatdata extends BaseEntity
         return creatorName;
     }
 
+    public void setDetectionMode(String detectionMode) 
+    {
+        this.detectionMode = detectionMode;
+    }
+
+    public String getDetectionMode() 
+    {
+        return detectionMode;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -109,6 +122,7 @@ public class Beatdata extends BaseEntity
             .append("createdBy", getCreatedBy())
             .append("filePath", getFilePath())
             .append("creatorName", getCreatorName())
+            .append("detectionMode", getDetectionMode())
             .toString();
     }
 }

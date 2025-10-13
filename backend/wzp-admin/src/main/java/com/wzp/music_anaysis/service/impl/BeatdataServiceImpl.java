@@ -73,6 +73,13 @@ public class BeatdataServiceImpl implements IBeatdataService
     @Override
     public int insertBeatdata(Beatdata beatdata)
     {
+        beatdata.setCreatedBy(SecurityUtils.getUserId());
+        
+        Beatdata existingBeatdata = beatdataMapper.checkMusicNameAndUserExists(beatdata);
+        if (existingBeatdata != null) {
+            throw new RuntimeException("该音乐已经被您分析过了，请勿重复添加");
+        }
+        
         Music queryMusic = new Music();
         queryMusic.setName(beatdata.getMusicName());
         List<Music> musicList = musicMapper.selectMusicList(queryMusic);
@@ -84,27 +91,29 @@ public class BeatdataServiceImpl implements IBeatdataService
         String filePath = musicList.get(0).getFilePath();
         beatdata.setFilePath(filePath);
         
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            Map<String, String> requestMap = new HashMap<>();
-            requestMap.put("audio_path", filePath);
-            
-            HttpEntity<Map<String, String>> request = new HttpEntity<>(requestMap, headers);
-            
-            String response = restTemplate.postForObject("http://localhost:5000/get_beatData", request, String.class);
-            
-            JsonNode jsonNode = objectMapper.readTree(response);
-            String beatTimesStr = jsonNode.get("beat_times").toString();
-            
-            beatdata.setBeatTimes(beatTimesStr);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch beat data: " + e.getMessage(), e);
+        if ((beatdata.getBeatTimes() == null || beatdata.getBeatTimes().trim().isEmpty()) && 
+            "librosa".equals(beatdata.getDetectionMode())) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                
+                Map<String, String> requestMap = new HashMap<>();
+                requestMap.put("audio_path", filePath);
+                
+                HttpEntity<Map<String, String>> request = new HttpEntity<>(requestMap, headers);
+                
+                String response = restTemplate.postForObject("http://localhost:5000/get_beatData", request, String.class);
+                
+                JsonNode jsonNode = objectMapper.readTree(response);
+                String beatTimesStr = jsonNode.get("beat_times").toString();
+                
+                beatdata.setBeatTimes(beatTimesStr);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to fetch beat data: " + e.getMessage(), e);
+            }
         }
         
         beatdata.setCreateTime(DateUtils.getNowDate());
-        beatdata.setCreatedBy(SecurityUtils.getUserId());
         
         return beatdataMapper.insertBeatdata(beatdata);
     }

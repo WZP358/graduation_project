@@ -81,4 +81,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <delete id="deleteBeatdataByMusicName" parameterType="String">
         delete from beatdata where music_name = #{musicName}
     </delete>
+
+    <select id="checkMusicNameAndUserExists" parameterType="Beatdata" resultMap="BeatdataResult">
+        select id, music_name, created_by
+        from beatdata
+        where music_name = #{musicName} and created_by = #{createdBy}
+        limit 1
+    </select>
 </mapper>

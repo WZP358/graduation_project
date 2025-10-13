@@ -101,9 +101,15 @@
 
     <!-- 添加或修改节拍时刻对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="beatdataRef" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="beatdataRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="音乐名称" prop="musicName">
           <el-input v-model="form.musicName" placeholder="请输入音乐名称" />
+        </el-form-item>
+        <el-form-item label="识别方式" prop="detectionMode" v-if="!form.id">
+          <el-select v-model="form.detectionMode" placeholder="请选择识别方式" style="width: 100%">
+            <el-option label="基于librosa检测" value="librosa"></el-option>
+            <el-option label="手动识别" value="manual"></el-option>
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -147,6 +153,9 @@ const data = reactive({
     musicName: [
       { required: true, message: "音乐名称不能为空", trigger: "blur" }
     ],
+    detectionMode: [
+      { required: true, message: "请选择识别方式", trigger: "change" }
+    ],
     beatTimes: [
       { required: true, message: "节拍时刻数组(JSON格式)不能为空", trigger: "blur" }
     ],
@@ -186,7 +195,8 @@ function reset() {
     createTime: null,
     updateTime: null,
     createdBy: null,
-    filePath: null
+    filePath: null,
+    detectionMode: 'librosa'
   }
   proxy.resetForm("beatdataRef")
 }
@@ -229,26 +239,79 @@ function handleUpdate(row) {
 }
 
 /** 提交按钮 */
-function submitForm() {
-  proxy.$refs["beatdataRef"].validate(valid => {
+async function submitForm() {
+  proxy.$refs["beatdataRef"].validate(async valid => {
     if (valid) {
-      submitting.value = true
-      const loadingInstance = proxy.$loading({
-        lock: true,
-        text: '正在分析音频，请稍等...',
-        background: 'rgba(0, 0, 0, 0.7)'
-      })
-      
-      const promise = form.value.id != null ? updateBeatdata(form.value) : addBeatdata(form.value)
-      
-      promise.then(response => {
-        proxy.$modal.msgSuccess(form.value.id != null ? "修改成功" : "新增成功")
-        open.value = false
-        getList()
-      }).finally(() => {
-        submitting.value = false
-        loadingInstance.close()
-      })
+      if (form.value.id != null) {
+        submitting.value = true
+        const loadingInstance = proxy.$loading({
+          lock: true,
+          text: '正在更新节拍数据...',
+          background: 'rgba(0, 0, 0, 0.7)'
+        })
+        
+        updateBeatdata(form.value).then(response => {
+          proxy.$modal.msgSuccess("修改成功")
+          open.value = false
+          getList()
+        }).catch(error => {
+          const errorMsg = error.response?.data?.msg || error.message || "修改失败"
+          proxy.$modal.msgError(errorMsg)
+        }).finally(() => {
+          submitting.value = false
+          loadingInstance.close()
+        })
+      } else {
+        if (form.value.detectionMode === 'manual') {
+          try {
+            const beatdataList = await listBeatdata({ musicName: form.value.musicName, pageNum: 1, pageSize: 1 })
+            if (beatdataList.rows && beatdataList.rows.length > 0) {
+              proxy.$modal.confirm('该音乐已存在节拍数据，是否进入编辑模式？').then(async () => {
+                const musicList = await listMusic_info({ name: form.value.musicName })
+                if (musicList.rows && musicList.rows.length > 0) {
+                  const musicId = musicList.rows[0].id
+                  open.value = false
+                  router.push(`/analysis/${musicId}/${encodeURIComponent(form.value.musicName)}`)
+                } else {
+                  proxy.$modal.msgError('未找到对应的音乐文件')
+                }
+              }).catch(() => {})
+              return
+            }
+            
+            const musicList = await listMusic_info({ name: form.value.musicName })
+            if (musicList.rows && musicList.rows.length > 0) {
+              const musicId = musicList.rows[0].id
+              open.value = false
+              router.push(`/analysis/${musicId}/${encodeURIComponent(form.value.musicName)}?mode=create`)
+            } else {
+              proxy.$modal.msgError('未找到对应的音乐文件，请先在音乐管理中上传音乐')
+            }
+          } catch (error) {
+            console.error('查询音乐信息失败:', error)
+            proxy.$modal.msgError('查询音乐信息失败')
+          }
+        } else {
+          submitting.value = true
+          const loadingInstance = proxy.$loading({
+            lock: true,
+            text: '正在分析音频，请稍等...',
+            background: 'rgba(0, 0, 0, 0.7)'
+          })
+          
+          addBeatdata(form.value).then(response => {
+            proxy.$modal.msgSuccess("新增成功")
+            open.value = false
+            getList()
+          }).catch(error => {
+            const errorMsg = error.response?.data?.msg || error.message || "新增失败"
+            proxy.$modal.msgError(errorMsg)
+          }).finally(() => {
+            submitting.value = false
+            loadingInstance.close()
+          })
+        }
+      }
     }
   })
 }

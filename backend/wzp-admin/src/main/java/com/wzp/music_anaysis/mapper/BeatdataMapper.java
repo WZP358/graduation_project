@@ -66,4 +66,12 @@ public interface BeatdataMapper
      * @return 结果
      */
     public int deleteBeatdataByMusicName(String musicName);
+
+    /**
+     * 检查音乐名称和用户是否已存在
+     * 
+     * @param beatdata 节拍时刻
+     * @return 节拍时刻
+     */
+    public Beatdata checkMusicNameAndUserExists(Beatdata beatdata);
 }
