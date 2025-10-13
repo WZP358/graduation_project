@@ -12,10 +12,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateTime"    column="update_time"    />
         <result property="createdBy"    column="created_by"    />
         <result property="filePath"    column="file_path"    />
+        <result property="creatorName"    column="creator_name"    />
     </resultMap>
 
     <sql id="selectBeatdataVo">
-        select id, music_name, beat_times, create_time, update_time, created_by, file_path from beatdata
+        select b.id, b.music_name, b.beat_times, b.create_time, b.update_time, b.created_by, b.file_path, u.nick_name as creator_name 
+        from beatdata b
+        left join sys_user u on b.created_by = u.user_id
     </sql>
 
     <select id="selectBeatdataList" parameterType="Beatdata" resultMap="BeatdataResult">

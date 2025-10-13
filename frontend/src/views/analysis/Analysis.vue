@@ -10,11 +10,10 @@
             </div>
 
             <div class="control-panel">
-                <h3 class="panel-title">控制面板</h3>
+                <h3 class="panel-title">控制面板</h3>-
                 
                 <div class="control-group">
                     <el-button type="primary" id="playPause">播放/暂停</el-button>
-                    <el-button type="success" @click="callRedraw()">绘制速度曲线</el-button>
                     <el-button type="warning" @click="saveBeats()">保存节拍修改</el-button>
                 </div>
 
@@ -368,28 +367,21 @@ onMounted(async () => {
                     }, 200)
                 }
             }
-        } else if (e.key === 'a' || e.key === 's' || e.key === 'd' || e.key === 'f') {
+        } else if (e.key === 'w' || e.key === 'a' || e.key === 's' || e.key === 'd') {
             const currentTime = waveform.getCurrentTime();
-            const speed = caculateSpeed(lastBitPosition, currentTime)
-            // console.log(speedArray)
-            lastBitPosition = currentTime
-            if (bitCount < myOptions.beatsPerBeat) {
-                bitCount = myOptions.beatsPerBeat
-            }
-            if (bitCount != myOptions.beatsPerBeat) {
-                speedArray.push([bitCount - myOptions.beatsPerBeat, speed])
-            }
-            // console.log('bitCount', bitCount)
-            const bit = Math.floor(bitCount / myOptions.beatsPerBeat)
-            const beat = Math.floor(bitCount % myOptions.beatsPerBeat) + 1
-            // console.log(bit, beat)
-            wfRegion.addRegion({
+            
+            const region = wfRegion.addRegion({
                 start: currentTime,
-                content: bit.toString() + '-' + beat.toString() + '\n' + waveform.getCurrentTime().toPrecision(3) + '\n' + speed.toPrecision(3),
-                color: 'rgba(240, 212, 0, 0.85)',
-                drag: false,
-            });
-            bitCount++;
+                end: currentTime + 0.01,
+                content: `${currentTime.toFixed(2)}s`,
+                color: 'rgba(255, 0, 0, 0.6)',
+                drag: true,
+                resize: false
+            })
+            
+            setupRegionEvents(region, waveform)
+            
+            layer.msg('已添加节拍点，请点击"保存节拍修改"保存', { icon: 1, time: 1000 })
         }
     }
     

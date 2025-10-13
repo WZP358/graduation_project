@@ -1,8 +1,9 @@
 <template>
     <div class="result">
         <h4>速度&nbsp;&nbsp;-&nbsp;&nbsp;力度&nbsp;&nbsp;曲线</h4>
-        <!-- <button @click="redraw">Log</button> -->
-        <div id="lineChart" v-on:parentEvent="redraw" style="font-size: 14px; color: azure;"></div>
+        <div class="chart-wrapper">
+            <div id="lineChart" v-on:parentEvent="redraw" style="font-size: 14px; color: azure;"></div>
+        </div>
     </div>
 </template>
 
@@ -23,6 +24,22 @@ function redraw() {
         beat: beat,
     }))
 
+    if (confidence.length === 0) {
+        return
+    }
+
+    const speeds = confidence.map(entry => entry.speed)
+    const minSpeed = Math.min(...speeds)
+    const maxSpeed = Math.max(...speeds)
+    const speedRange = maxSpeed - minSpeed
+    const yPadding = speedRange * 0.1 || 10
+    const yMin = Math.max(0, minSpeed - yPadding)
+    const yMax = maxSpeed + yPadding
+
+    const chartContainer = document.getElementById('lineChart')
+    const containerWidth = chartContainer?.parentElement?.clientWidth || 800
+    const chartWidth = Math.max(containerWidth - 40, 600)
+
     new LineChart({
         confidenceBand: ['l', 'u'],
         data: [
@@ -30,8 +47,8 @@ function redraw() {
                 ...entry,
                 beat: entry.beat,
                 speed: entry.speed,
-                l: entry.speed - 10,
-                u: entry.speed + 10,
+                l: entry.speed - speedRange * 0.05,
+                u: entry.speed + speedRange * 0.05,
             })),
         ],
         area: [],
@@ -40,16 +57,16 @@ function redraw() {
         },
         yAxis: {
             label: 'Speed(BPM)',
-            tickCount: 4,
+            tickCount: 6,
             extendedTicks: true,
         },
         yScale: {
-            minValue: 0,
-            maxValue: 300,
+            minValue: yMin,
+            maxValue: yMax,
         },
         xAccessor: 'beat',
         yAccessor: 'speed',
-        width: 1500,
+        width: chartWidth,
         height: 400,
         target: '#lineChart',
         tooltipFunction: (point) => `beat: ${point.beat} - speed: ${point.speed.toFixed(2)}`,
@@ -72,6 +89,8 @@ defineExpose({ redraw })
     background-color: #fafafa;
     border-radius: 8px;
     padding: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 h4 {
@@ -80,6 +99,16 @@ h4 {
     font-size: 16px;
     color: #303133;
     font-weight: 600;
+}
+
+.chart-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+#lineChart {
+    min-width: 600px;
 }
 
 .mg-area {

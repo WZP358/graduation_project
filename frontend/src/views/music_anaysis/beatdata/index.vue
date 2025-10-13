@@ -9,10 +9,10 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="用户ID" prop="createdBy">
+      <el-form-item label="用户名称" prop="creatorName">
         <el-input
-          v-model="queryParams.createdBy"
-          placeholder="请输入创建用户ID"
+          v-model="queryParams.creatorName"
+          placeholder="请输入创建用户名称"
           clearable
           @keyup.enter="handleQuery"
         />
@@ -80,7 +80,7 @@
           <span>{{ parseTime(scope.row.updateTime, '{y}-{m}-{d}') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="创建用户ID" align="center" prop="createdBy" />
+      <el-table-column label="创建用户名称" align="center" prop="creatorName" />
       <el-table-column label="存放路径" align="center" prop="filePath" show-overflow-tooltip />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
@@ -141,7 +141,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     musicName: null,
-    createdBy: null,
+    creatorName: null,
   },
   rules: {
     musicName: [

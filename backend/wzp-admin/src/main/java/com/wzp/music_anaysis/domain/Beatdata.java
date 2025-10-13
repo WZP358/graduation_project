@@ -34,6 +34,10 @@ public class Beatdata extends BaseEntity
     @Excel(name = "文件在服务器上的存放路径")
     private String filePath;
 
+    /** 创建用户名称 */
+    @Excel(name = "创建用户名称")
+    private String creatorName;
+
     public void setId(Long id) 
     {
         this.id = id;
@@ -84,6 +88,16 @@ public class Beatdata extends BaseEntity
         return filePath;
     }
 
+    public void setCreatorName(String creatorName) 
+    {
+        this.creatorName = creatorName;
+    }
+
+    public String getCreatorName() 
+    {
+        return creatorName;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -94,6 +108,7 @@ public class Beatdata extends BaseEntity
             .append("updateTime", getUpdateTime())
             .append("createdBy", getCreatedBy())
             .append("filePath", getFilePath())
+            .append("creatorName", getCreatorName())
             .toString();
     }
 }
