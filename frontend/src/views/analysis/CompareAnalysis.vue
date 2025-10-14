@@ -175,13 +175,19 @@ onMounted(async () => {
                         });
                         
                         beatTimes.forEach((time, index) => {
+                            const timeLabel = time.toFixed(2) + 's';
                             wfRegion.addRegion({
                                 start: time,
                                 end: time + 0.01,
-                                content: '',
+                                content: timeLabel,
                                 color: color,
                                 drag: false,
-                                resize: false
+                                resize: false,
+                                id: `beat-${i}-${index}`,
+                                attributes: {
+                                    'data-dataset-index': i,
+                                    'data-time': timeLabel
+                                }
                             });
                         });
                     }
@@ -244,6 +250,64 @@ onMounted(async () => {
 
 :deep(.wavesurfer-region) {
     z-index: 3 !important;
+}
+
+:deep(.wavesurfer-region:before) {
+    content: attr(data-time);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #333;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 3px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    font-weight: 500;
+    z-index: 10;
+    pointer-events: none;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+:deep(.wavesurfer-region[data-dataset-index="0"]:before) {
+    top: -25px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="1"]:before) {
+    top: -50px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="2"]:before) {
+    top: -75px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="3"]:before) {
+    top: -100px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="4"]:before) {
+    top: -125px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="5"]:before) {
+    top: -150px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="6"]:before) {
+    top: -175px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="7"]:before) {
+    top: -200px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="8"]:before) {
+    top: -225px;
+}
+
+:deep(.wavesurfer-region[data-dataset-index="9"]:before) {
+    top: -250px;
 }
 
 .content-wrapper {

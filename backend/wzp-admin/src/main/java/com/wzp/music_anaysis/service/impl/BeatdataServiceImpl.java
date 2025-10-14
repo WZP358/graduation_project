@@ -77,7 +77,7 @@ public class BeatdataServiceImpl implements IBeatdataService
         
         Beatdata existingBeatdata = beatdataMapper.checkMusicNameAndUserExists(beatdata);
         if (existingBeatdata != null) {
-            throw new RuntimeException("该音乐已经被您分析过了，请勿重复添加");
+            throw new RuntimeException("该音乐已存在相同识别方式的节拍数据");
         }
         
         Music queryMusic = new Music();

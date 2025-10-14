@@ -69,6 +69,11 @@
       <el-table-column type="selection" width="55" align="center" />
 <!--      <el-table-column label="主键ID" align="center" prop="id" />-->
       <el-table-column label="音乐名称" align="center" prop="musicName" />
+      <el-table-column label="识别方式" align="center" prop="detectionMode" width="120">
+        <template #default="scope">
+          <span>{{ scope.row.detectionMode === 'librosa' ? '基于librosa检测' : '手动识别' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="节拍时刻数组" align="center" prop="beatTimes" show-overflow-tooltip />
       <el-table-column label="创建时间" align="center" prop="createTime" width="180">
         <template #default="scope">
@@ -264,7 +269,7 @@ async function submitForm() {
       } else {
         if (form.value.detectionMode === 'manual') {
           try {
-            const beatdataList = await listBeatdata({ musicName: form.value.musicName, pageNum: 1, pageSize: 1 })
+            const beatdataList = await listBeatdata({ musicName: form.value.musicName, detectionMode: form.value.detectionMode, pageNum: 1, pageSize: 1 })
             if (beatdataList.rows && beatdataList.rows.length > 0) {
               proxy.$modal.confirm('该音乐已存在节拍数据，是否进入编辑模式？').then(async () => {
                 const musicList = await listMusic_info({ name: form.value.musicName })

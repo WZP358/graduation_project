@@ -1,0 +1,13 @@
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\config\GenConfig.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\domain\GenTableColumn.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\mapper\GenTableMapper.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\util\GenUtils.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\util\VelocityUtils.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\util\VelocityInitializer.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\service\GenTableServiceImpl.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\controller\GenController.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\service\IGenTableColumnService.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\service\GenTableColumnServiceImpl.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\mapper\GenTableColumnMapper.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\domain\GenTable.java
+E:\code\graduation_project\backend\wzp-generator\src\main\java\com\wzp\generator\service\IGenTableService.java

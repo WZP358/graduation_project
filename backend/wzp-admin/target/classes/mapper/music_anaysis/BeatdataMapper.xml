@@ -13,10 +13,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createdBy"    column="created_by"    />
         <result property="filePath"    column="file_path"    />
         <result property="creatorName"    column="creator_name"    />
+        <result property="detectionMode"    column="detection_mode"    />
     </resultMap>
 
     <sql id="selectBeatdataVo">
-        select b.id, b.music_name, b.beat_times, b.create_time, b.update_time, b.created_by, b.file_path, u.nick_name as creator_name 
+        select b.id, b.music_name, b.beat_times, b.create_time, b.update_time, b.created_by, b.file_path, b.detection_mode, u.nick_name as creator_name 
         from beatdata b
         left join sys_user u on b.created_by = u.user_id
     </sql>
@@ -26,6 +27,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <where>  
             <if test="musicName != null  and musicName != ''"> and music_name like concat('%', #{musicName}, '%')</if>
             <if test="createdBy != null "> and created_by = #{createdBy}</if>
+            <if test="detectionMode != null and detectionMode != ''"> and detection_mode = #{detectionMode}</if>
         </where>
     </select>
     
@@ -43,6 +45,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateTime != null">update_time,</if>
             <if test="createdBy != null">created_by,</if>
             <if test="filePath != null and filePath != ''">file_path,</if>
+            <if test="detectionMode != null and detectionMode != ''">detection_mode,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="musicName != null and musicName != ''">#{musicName},</if>
@@ -51,6 +54,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateTime != null">#{updateTime},</if>
             <if test="createdBy != null">#{createdBy},</if>
             <if test="filePath != null and filePath != ''">#{filePath},</if>
+            <if test="detectionMode != null and detectionMode != ''">#{detectionMode},</if>
          </trim>
     </insert>
 
@@ -63,6 +67,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="createdBy != null">created_by = #{createdBy},</if>
             <if test="filePath != null and filePath != ''">file_path = #{filePath},</if>
+            <if test="detectionMode != null and detectionMode != ''">detection_mode = #{detectionMode},</if>
         </trim>
         where id = #{id}
     </update>
@@ -83,9 +88,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <select id="checkMusicNameAndUserExists" parameterType="Beatdata" resultMap="BeatdataResult">
-        select id, music_name, created_by
+        select id, music_name, created_by, detection_mode
         from beatdata
-        where music_name = #{musicName} and created_by = #{createdBy}
+        where music_name = #{musicName} and created_by = #{createdBy} and detection_mode = #{detectionMode}
         limit 1
     </select>
 </mapper>

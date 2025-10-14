@@ -1,0 +1,13 @@
+com\wzp\generator\domain\GenTableColumn.class
+com\wzp\generator\controller\GenController.class
+com\wzp\generator\service\IGenTableColumnService.class
+com\wzp\generator\mapper\GenTableMapper.class
+com\wzp\generator\util\GenUtils.class
+com\wzp\generator\config\GenConfig.class
+com\wzp\generator\mapper\GenTableColumnMapper.class
+com\wzp\generator\service\IGenTableService.class
+com\wzp\generator\util\VelocityInitializer.class
+com\wzp\generator\domain\GenTable.class
+com\wzp\generator\service\GenTableColumnServiceImpl.class
+com\wzp\generator\service\GenTableServiceImpl.class
+com\wzp\generator\util\VelocityUtils.class
