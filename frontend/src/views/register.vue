@@ -1,5 +1,8 @@
 <template>
   <div class="register">
+    <video autoplay loop muted playsinline class="register-background-video">
+      <source src="../assets/images/background.mp4" type="video/mp4">
+    </video>
     <el-form ref="registerRef" :model="registerForm" :rules="registerRules" class="register-form">
       <h3 class="title">{{ title }}</h3>
       <el-form-item prop="username">
@@ -161,9 +164,23 @@ getCode()
   justify-content: center;
   align-items: center;
   height: 100%;
-  background-image: url("../assets/images/login-background.jpg");
-  background-size: cover;
+  position: relative;
+  overflow: hidden;
 }
+
+.register-background-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  object-fit: cover;
+}
+
 .title {
   margin: 0px auto 30px auto;
   text-align: center;
@@ -172,9 +189,12 @@ getCode()
 
 .register-form {
   border-radius: 6px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.3); // 和登录页面相同的透明度
   width: 400px;
   padding: 25px 25px 5px 25px;
+  z-index: 1;
+  //backdrop-filter: blur(10px); // 可选：添加模糊效果使文字更易读
+  
   .el-input {
     height: 40px;
     input {
