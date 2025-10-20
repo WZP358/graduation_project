@@ -345,7 +345,8 @@ async function handleViewWaveform(row) {
     const musicList = await listMusic_info({ name: row.musicName })
     if (musicList.rows && musicList.rows.length > 0) {
       const musicId = musicList.rows[0].id
-      const targetPath = `/analysis/${musicId}/${encodeURIComponent(row.musicName)}`
+      const detectionMode = row.detectionMode || 'librosa'
+      const targetPath = `/analysis/${musicId}/${encodeURIComponent(row.musicName)}?detectionMode=${detectionMode}`
       console.log('准备跳转到波形分析页面:', targetPath)
       
       window.location.href = `${window.location.origin}${targetPath}`

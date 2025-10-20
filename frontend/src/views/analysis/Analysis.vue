@@ -28,7 +28,7 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts">  
 import { useRoute } from 'vue-router';
 import { layer } from '@layui/layer-vue'
 import { onMounted, ref, onUnmounted, onBeforeMount, reactive, watchEffect } from 'vue';
@@ -101,6 +101,7 @@ const route = useRoute();
 let musicId = route.params.musicId;
 let musicName = route.params.musicName;
 let isCreateMode = route.query.mode === 'create';
+let detectionMode = route.query.detectionMode || 'manual';
 let bitCount
 let speedArray: number[][] = []
 let waveformInstance = null
@@ -110,7 +111,7 @@ let selectedRegion = null
 let keyPressInterval = null
 let keyPressSpeed = 100
 
-console.log('Analysis页面初始化', { musicId, musicName, isCreateMode })
+console.log('Analysis页面初始化', { musicId, musicName, isCreateMode, detectionMode })
 
 let myOptions = reactive({
     color: "1",
@@ -221,8 +222,9 @@ onMounted(async () => {
         if (!isCreateMode) {
             console.log('开始加载节拍数据')
             console.log('音乐名称:', musicName)
+            console.log('识别方式:', detectionMode)
             try {
-                const response = await getBeatdataByMusicName(musicName);
+                const response = await getBeatdataByMusicName(musicName, detectionMode);
                 console.log('节拍数据API响应:', response);
                 
                 if (response.rows && response.rows.length > 0) {
