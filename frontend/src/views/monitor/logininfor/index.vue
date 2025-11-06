@@ -79,7 +79,7 @@
                :disabled="single"
                @click="handleUnlock"
                v-hasPermi="['monitor:logininfor:unlock']"
-            >解锁</el-button>
+            >锁住</el-button>
          </el-col>
          <el-col :span="1.5">
             <el-button

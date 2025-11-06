@@ -12,17 +12,57 @@
                         v-for="(dataset, index) in datasets" 
                         :key="dataset.id"
                         class="legend-item"
+                        :class="{ 'locked': dataset.locked }"
                     >
                         <div 
                             class="legend-color" 
                             :style="{ backgroundColor: dataset.color }"
                         ></div>
-                        <span class="legend-text">
-                            {{ dataset.creatorName || '未知用户' }} 
-                            ({{ dataset.detectionMode || '未知模式' }})
-                            - {{ dataset.beatCount }} 个节拍
-                        </span>
+                        <div class="legend-info">
+                            <span class="legend-text">
+                                {{ dataset.creatorName || '未知用户' }} 
+                                ({{ dataset.detectionMode || '未知模式' }})
+                                - {{ dataset.beatCount }} 个节拍
+                            </span>
+                            <div class="legend-controls">
+                                <el-button 
+                                    :type="dataset.locked ? 'info' : 'warning'" 
+                                    size="small"
+                                    :icon="dataset.locked ? 'Lock' : 'Unlock'"
+                                    @click="toggleLock(index)"
+                                >
+                                    {{ dataset.locked ? '已锁定' : '锁住' }}
+                                </el-button>
+                                <el-button 
+                                    type="success" 
+                                    size="small"
+                                    icon="Check"
+                                    :disabled="dataset.locked"
+                                    @click="saveDataset(dataset)"
+                                >
+                                    保存
+                                </el-button>
+                            </div>
+                        </div>
                     </div>
+                </div>
+                
+                <div class="tips-section">
+                    <el-alert type="info" :closable="false">
+                        <template #title>
+                            <div style="font-size: 13px; line-height: 1.6;">
+                                <div><strong>操作提示：</strong></div>
+                                <div>• 按 W/A/S/D 键在当前播放位置添加节拍点</div>
+                                <div>• 拖动节拍点，原标签变灰，绿色预览</div>
+                                <div>• 点击绿色标签确认移动位置</div>
+                                <div>• 右键绿色标签可取消移动</div>
+                                <div>• 右键节拍点显示菜单（键盘移动/删除）</div>
+                                <div>• 使用 ←→ 键移动选中的节拍点（0.01s/次）</div>
+                                <div>• Ctrl+Z 撤销操作（需确认）</div>
+                                <div>• 锁定数据集防止误操作</div>
+                            </div>
+                        </template>
+                    </el-alert>
                 </div>
             </div>
 
@@ -46,12 +86,13 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 import { layer } from '@layui/layer-vue'
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref, reactive, onUnmounted } from 'vue';
+import { ElMessageBox } from 'element-plus'
 import WaveForm from '@/views/analysis/waveform/waveform';
 import Minimap from '@/views/analysis/waveform/plugins/minimap';
 import HoverPlugin from '@/views/analysis/waveform/plugins/hover';
 import RegionsPlugin from '@/views/analysis/waveform/plugins/regions';
-import { getBeatdata } from '@/api/music_anaysis/beatdata';
+import { getBeatdata, updateBeatdata } from '@/api/music_anaysis/beatdata';
 import { listMusic } from '@/api/music/music_info';
 
 const route = useRoute();
@@ -62,8 +103,33 @@ const musicName = route.query.musicName;
 
 let waveformInstance = null;
 let wfRegionInstance = null;
+let selectedRegion = null;
+let dragPreviewRegion = null; // 拖动预览标签
+let originalRegion = null; // 原始标签
+let isDraggingRegion = false; // 是否正在拖动
+let keyPressInterval = null; // 键盘长按加速定时器
+let keyPressSpeed = 100; // 键盘移动速度
+let keyboardMoveStartPosition = null; // 键盘移动开始位置
 
 const datasets = ref([]);
+
+// 操作历史记录系统
+interface HistoryAction {
+    type: 'add' | 'move' | 'delete'
+    regionId: string
+    datasetIndex: number
+    data: {
+        start?: number
+        end?: number
+        oldStart?: number
+        oldEnd?: number
+        content?: string
+        color?: string
+    }
+}
+
+const actionHistory: HistoryAction[] = []
+const MAX_HISTORY_SIZE = 50
 
 const distinctColors = [
     'rgba(255, 0, 0, 0.6)',      // 红色
@@ -80,6 +146,477 @@ const distinctColors = [
 
 function goBack() {
     router.back();
+}
+
+// 切换锁定状态
+function toggleLock(index: number) {
+    datasets.value[index].locked = !datasets.value[index].locked;
+    const state = datasets.value[index].locked ? '已锁定' : '已解锁';
+    layer.msg(`数据集 ${datasets.value[index].creatorName} ${state}`, { icon: 1 });
+    
+    // 更新所有属于该数据集的region的拖动状态
+    updateRegionsDragState(index, !datasets.value[index].locked);
+}
+
+// 更新指定数据集的所有region的拖动状态
+function updateRegionsDragState(datasetIndex: number, draggable: boolean) {
+    if (!wfRegionInstance) return;
+    
+    const regions = wfRegionInstance.getRegions();
+    regions.forEach(region => {
+        const regionDatasetIndex = parseInt(region.id.split('-')[1]);
+        if (regionDatasetIndex === datasetIndex) {
+            region.setOptions({ drag: draggable });
+        }
+    });
+}
+
+// 保存数据集
+async function saveDataset(dataset: any) {
+    if (dataset.locked) {
+        layer.msg('数据集已锁定，无法保存', { icon: 2 });
+        return;
+    }
+    
+    try {
+        await ElMessageBox.confirm(
+            `确认保存数据集 "${dataset.creatorName}" 的修改吗？`,
+            '确认保存',
+            {
+                confirmButtonText: '确认',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }
+        );
+        
+        // 获取该数据集的所有region
+        const regions = wfRegionInstance.getRegions();
+        const datasetIndex = datasets.value.findIndex(d => d.id === dataset.id);
+        const datasetRegions = regions.filter(r => {
+            const regionDatasetIndex = parseInt(r.id.split('-')[1]);
+            return regionDatasetIndex === datasetIndex;
+        });
+        
+        // 提取并排序节拍时间
+        const beatTimes = datasetRegions
+            .map(r => parseFloat(r.start.toFixed(2)))
+            .sort((a, b) => a - b);
+        
+        // 更新数据
+        const updateData = {
+            id: dataset.id,
+            musicName: dataset.musicName,
+            beatTimes: JSON.stringify(beatTimes),
+            detectionMode: dataset.detectionMode,
+            creatorName: dataset.creatorName
+        };
+        
+        await updateBeatdata(updateData);
+        layer.msg('保存成功', { icon: 1 });
+        
+        // 更新本地数据集的节拍数量
+        dataset.beatCount = beatTimes.length;
+        
+    } catch (error) {
+        if (error !== 'cancel') {
+            layer.msg('保存失败: ' + error, { icon: 2 });
+        }
+    }
+}
+
+// 添加操作到历史记录
+function addToHistory(action: HistoryAction) {
+    actionHistory.push(action);
+    if (actionHistory.length > MAX_HISTORY_SIZE) {
+        actionHistory.shift();
+    }
+    console.log('记录操作:', action, '当前历史记录数:', actionHistory.length);
+}
+
+// 撤回最后一次操作
+async function undoLastAction() {
+    if (actionHistory.length === 0) {
+        layer.msg('没有可撤回的操作', { icon: 2 });
+        return;
+    }
+    
+    const lastAction = actionHistory[actionHistory.length - 1];
+    const dataset = datasets.value[lastAction.datasetIndex];
+    
+    // 检查数据集是否被锁定
+    if (dataset && dataset.locked) {
+        layer.msg('该数据集已锁定，无法撤回操作', { icon: 2 });
+        return;
+    }
+    
+    let actionDesc = '';
+    if (lastAction.type === 'add') {
+        actionDesc = `添加节拍点 (${lastAction.data.start?.toFixed(2)}s)`;
+    } else if (lastAction.type === 'move') {
+        actionDesc = `移动节拍点 (从 ${lastAction.data.oldStart?.toFixed(2)}s 到 ${lastAction.data.start?.toFixed(2)}s)`;
+    } else if (lastAction.type === 'delete') {
+        actionDesc = `删除节拍点 (${lastAction.data.start?.toFixed(2)}s)`;
+    }
+    
+    try {
+        await ElMessageBox.confirm(
+            `确认要撤回操作: ${actionDesc} 吗？`,
+            '撤回操作',
+            {
+                confirmButtonText: '确认',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }
+        );
+        
+        const action = actionHistory.pop();
+        if (!action) return;
+        
+        const regions = wfRegionInstance.getRegions();
+        
+        if (action.type === 'add') {
+            const region = regions.find(r => r.id === action.regionId);
+            if (region) {
+                region.remove();
+                layer.msg('已撤回添加操作', { icon: 1 });
+            }
+        } else if (action.type === 'move') {
+            const region = regions.find(r => r.id === action.regionId);
+            if (region && action.data.oldStart !== undefined) {
+                region.setOptions({
+                    start: action.data.oldStart,
+                    end: action.data.oldStart + 0.01,
+                    content: `${action.data.oldStart.toFixed(2)}s`
+                });
+                layer.msg('已撤回移动操作', { icon: 1 });
+            }
+        } else if (action.type === 'delete') {
+            if (action.data.start !== undefined) {
+                const region = wfRegionInstance.addRegion({
+                    id: action.regionId,
+                    start: action.data.start,
+                    end: action.data.end || action.data.start + 0.01,
+                    content: action.data.content || `${action.data.start.toFixed(2)}s`,
+                    color: action.data.color || 'rgba(255, 0, 0, 0.6)',
+                    drag: !dataset.locked,
+                    resize: false
+                });
+                setupRegionEvents(region, waveformInstance, action.datasetIndex);
+                layer.msg('已撤回删除操作', { icon: 1 });
+            }
+        }
+    } catch (error) {
+        console.log('用户取消了撤回操作');
+    }
+}
+
+// 清理预览状态的辅助函数
+function cleanupPreviewState() {
+    if (dragPreviewRegion) {
+        dragPreviewRegion.remove();
+        dragPreviewRegion = null;
+    }
+    if (originalRegion) {
+        const originalDatasetIndex = parseInt(originalRegion.id.split('-')[1]);
+        const dataset = datasets.value[originalDatasetIndex];
+        originalRegion.setOptions({
+            color: dataset.color,
+            drag: !dataset.locked
+        });
+        originalRegion = null;
+    }
+    isDraggingRegion = false;
+}
+
+// 为预览标签设置事件
+function setupPreviewRegionEvents(previewRegion, originalRegion, waveform, originalStart, datasetIndex) {
+    let previewStartBeforeDrag = previewRegion.start;
+    
+    previewRegion.on('update-start', () => {
+        previewStartBeforeDrag = previewRegion.start;
+    });
+    
+    previewRegion.on('update-end', () => {
+        const newPreviewPosition = previewRegion.start;
+        
+        // 如果预览标签位置发生变化，只更新显示，不创建新的预览
+        if (Math.abs(newPreviewPosition - previewStartBeforeDrag) > 0.001) {
+            previewRegion.setOptions({
+                content: `${newPreviewPosition.toFixed(2)}s (点击确认)`
+            });
+            layer.msg('请点击绿色预览标签确认移动', { icon: 1, time: 1500 });
+        } else {
+            previewRegion.setOptions({
+                content: `${previewRegion.start.toFixed(2)}s (点击确认)`
+            });
+        }
+    });
+    
+    previewRegion.on('click', async (e) => {
+        if (e.button !== 0) return; // 只响应左键点击
+        
+        try {
+            await ElMessageBox.confirm(
+                `确认将节拍点从 ${originalStart.toFixed(2)}s 移动到 ${previewRegion.start.toFixed(2)}s 吗？`,
+                '确认移动',
+                {
+                    confirmButtonText: '确认',
+                    cancelButtonText: '取消',
+                    type: 'info',
+                }
+            );
+            
+            const dataset = datasets.value[datasetIndex];
+            
+            // 用户确认，应用更改
+            originalRegion.setOptions({
+                start: previewRegion.start,
+                end: previewRegion.start + 0.01,
+                content: `${previewRegion.start.toFixed(2)}s`,
+                color: dataset.color,
+                drag: !dataset.locked // 恢复可拖动状态（根据锁定状态）
+            });
+            
+            // 记录移动操作到历史
+            if (Math.abs(previewRegion.start - originalStart) > 0.001) {
+                addToHistory({
+                    type: 'move',
+                    regionId: originalRegion.id,
+                    datasetIndex: datasetIndex,
+                    data: {
+                        oldStart: originalStart,
+                        oldEnd: originalStart + 0.01,
+                        start: previewRegion.start,
+                        end: previewRegion.start + 0.01
+                    }
+                });
+            }
+            
+            // 删除预览标签
+            previewRegion.remove();
+            dragPreviewRegion = null;
+            originalRegion = null;
+            isDraggingRegion = false;
+            
+            layer.msg('节拍点位置已更新', { icon: 1 });
+        } catch (error) {
+            // 用户取消，恢复原状态
+            cleanupPreviewState();
+            layer.msg('已取消移动', { icon: 2 });
+        }
+    });
+    
+    // 为预览标签添加右键菜单
+    previewRegion.element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            left: ${e.clientX}px;
+            top: ${e.clientY}px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 120px;
+        `;
+        
+        const cancelOption = document.createElement('div');
+        cancelOption.textContent = '取消移动';
+        cancelOption.style.cssText = `
+            padding: 8px 16px;
+            cursor: pointer;
+            color: #f56c6c;
+        `;
+        cancelOption.onmouseover = () => cancelOption.style.background = '#f5f5f5';
+        cancelOption.onmouseout = () => cancelOption.style.background = 'white';
+        cancelOption.onclick = () => {
+            document.body.removeChild(menu);
+            cleanupPreviewState();
+            layer.msg('已取消移动', { icon: 2 });
+        };
+        
+        menu.appendChild(cancelOption);
+        document.body.appendChild(menu);
+        
+        const closeMenu = (event) => {
+            if (menu.parentNode && !menu.contains(event.target)) {
+                document.body.removeChild(menu);
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 0);
+    });
+}
+
+// 设置Region事件
+function setupRegionEvents(region: any, waveform: any, datasetIndex: number) {
+    let regionStartBeforeDrag = region.start; // 保存拖动前的位置
+    
+    region.on('update-start', () => {
+        regionStartBeforeDrag = region.start; // 记录拖动开始时的位置
+    });
+    
+    region.on('update-end', () => {
+        const newPosition = region.start;
+        
+        // 检查数据集是否被锁定
+        const dataset = datasets.value[datasetIndex];
+        if (dataset && dataset.locked) {
+            region.setOptions({
+                start: regionStartBeforeDrag,
+                end: regionStartBeforeDrag + 0.01,
+                content: `${regionStartBeforeDrag.toFixed(2)}s`
+            });
+            layer.msg('该数据集已锁定，无法移动', { icon: 2 });
+            return;
+        }
+        
+        // 检查是否真的移动了位置
+        if (Math.abs(newPosition - regionStartBeforeDrag) < 0.001) {
+            region.setOptions({
+                content: `${region.start.toFixed(2)}s`
+            });
+            return;
+        }
+        
+        // 如果有之前的预览状态，先清理
+        if (isDraggingRegion) {
+            cleanupPreviewState();
+        }
+        
+        // 位置发生了变化，进入确认模式
+        isDraggingRegion = true;
+        
+        // 将region恢复到原位置并变为灰色
+        region.setOptions({
+            start: regionStartBeforeDrag,
+            end: regionStartBeforeDrag + 0.01,
+            content: `${regionStartBeforeDrag.toFixed(2)}s`,
+            color: 'rgba(128, 128, 128, 0.3)',
+            drag: false // 禁止继续拖动原标签
+        });
+        
+        // 创建预览标签（绿色）在新位置
+        dragPreviewRegion = wfRegionInstance.addRegion({
+            start: newPosition,
+            end: newPosition + 0.01,
+            content: `${newPosition.toFixed(2)}s (点击确认)`,
+            color: 'rgba(0, 200, 0, 0.6)',
+            drag: true, // 预览标签可以继续拖动
+            resize: false
+        });
+        
+        // 保存原始region引用
+        originalRegion = region;
+        
+        // 为预览标签设置点击事件
+        setupPreviewRegionEvents(dragPreviewRegion, region, waveform, regionStartBeforeDrag, datasetIndex);
+        
+        layer.msg('请点击绿色预览标签确认移动', { icon: 1, time: 2000 });
+    });
+    
+    region.on('click', (e) => {
+        if (e.button === 2) {
+            e.preventDefault();
+        }
+        selectedRegion = region;
+    });
+    
+    region.element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        
+        // 如果该region正在预览模式（变灰色），提示用户先处理预览
+        if (region === originalRegion && isDraggingRegion) {
+            layer.msg('请先确认或取消当前的移动操作', { icon: 2 });
+            return;
+        }
+        
+        const dataset = datasets.value[datasetIndex];
+        if (dataset && dataset.locked) {
+            layer.msg('该数据集已锁定，无法操作', { icon: 2 });
+            return;
+        }
+        
+        selectedRegion = region;
+        
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            left: ${e.clientX}px;
+            top: ${e.clientY}px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 120px;
+        `;
+        
+        const moveOption = document.createElement('div');
+        moveOption.textContent = '键盘移动 (←→)';
+        moveOption.style.cssText = `
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        `;
+        moveOption.onmouseover = () => moveOption.style.background = '#f5f5f5';
+        moveOption.onmouseout = () => moveOption.style.background = 'white';
+        moveOption.onclick = () => {
+            document.body.removeChild(menu);
+            layer.msg('请使用键盘左右键移动节拍点，每次移动0.01s', { icon: 1 });
+        };
+        
+        const deleteOption = document.createElement('div');
+        deleteOption.textContent = '删除';
+        deleteOption.style.cssText = `
+            padding: 8px 16px;
+            cursor: pointer;
+            color: #f56c6c;
+        `;
+        deleteOption.onmouseover = () => deleteOption.style.background = '#f5f5f5';
+        deleteOption.onmouseout = () => deleteOption.style.background = 'white';
+        deleteOption.onclick = () => {
+            document.body.removeChild(menu);
+            if (confirm(`删除节拍点 ${region.start.toFixed(2)}s?`)) {
+                addToHistory({
+                    type: 'delete',
+                    regionId: region.id,
+                    datasetIndex: datasetIndex,
+                    data: {
+                        start: region.start,
+                        end: region.end,
+                        content: `${region.start.toFixed(2)}s`,
+                        color: region.color
+                    }
+                });
+                
+                region.remove();
+                selectedRegion = null;
+                layer.msg('节拍点已删除，请记得保存', { icon: 1 });
+            }
+        };
+        
+        menu.appendChild(moveOption);
+        menu.appendChild(deleteOption);
+        document.body.appendChild(menu);
+        
+        const closeMenu = (event) => {
+            if (menu.parentNode && !menu.contains(event.target)) {
+                document.body.removeChild(menu);
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 0);
+    });
 }
 
 onMounted(async () => {
@@ -168,20 +705,22 @@ onMounted(async () => {
                         
                         datasets.value.push({
                             id: beatData.id,
+                            musicName: beatData.musicName,
                             creatorName: beatData.creatorName,
                             detectionMode: beatData.detectionMode,
                             beatCount: beatTimes.length,
-                            color: color
+                            color: color,
+                            locked: false  // 默认未锁定
                         });
                         
                         beatTimes.forEach((time, index) => {
                             const timeLabel = time.toFixed(2) + 's';
-                            wfRegion.addRegion({
+                            const region = wfRegion.addRegion({
                                 start: time,
                                 end: time + 0.01,
                                 content: timeLabel,
                                 color: color,
-                                drag: false,
+                                drag: true,  // 默认可拖动
                                 resize: false,
                                 id: `beat-${i}-${index}`,
                                 attributes: {
@@ -189,6 +728,9 @@ onMounted(async () => {
                                     'data-time': timeLabel
                                 }
                             });
+                            
+                            // 为每个region设置事件
+                            setupRegionEvents(region, waveform, i);
                         });
                     }
                 } catch (error) {
@@ -208,6 +750,152 @@ onMounted(async () => {
         slider?.addEventListener('input', (e) => {
             const zoomLevel = Number((e.target as HTMLInputElement).value);
             waveform.zoom(zoomLevel);
+        });
+        
+        // 添加键盘监听
+        const keydownHandler = (e: KeyboardEvent) => {
+            // Ctrl+Z 撤回功能
+            if (e.ctrlKey && e.key === 'z') {
+                e.preventDefault();
+                undoLastAction();
+                return;
+            }
+            
+            // 左右键移动选中的节拍点
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                if (!selectedRegion) {
+                    layer.msg('请先右键选择一个节拍点', { icon: 2 });
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                // 检查选中的节拍点所属的数据集是否被锁定
+                const regionDatasetIndex = parseInt(selectedRegion.id.split('-')[1]);
+                const dataset = datasets.value[regionDatasetIndex];
+                if (dataset && dataset.locked) {
+                    layer.msg('该数据集已锁定，无法移动', { icon: 2 });
+                    return;
+                }
+                
+                // 只在第一次按下时记录初始位置
+                if (keyboardMoveStartPosition === null) {
+                    keyboardMoveStartPosition = selectedRegion.start;
+                }
+                
+                const moveStep = 0.01;
+                const direction = e.key === 'ArrowLeft' ? -1 : 1;
+                const newStart = Math.max(0, selectedRegion.start + direction * moveStep);
+                const duration = waveform.getDuration();
+                
+                if (newStart <= duration) {
+                    selectedRegion.setOptions({
+                        start: newStart,
+                        end: newStart + 0.01,
+                        content: `${newStart.toFixed(2)}s`
+                    });
+                    
+                    if (!keyPressInterval) {
+                        keyPressSpeed = 100;
+                        keyPressInterval = setInterval(() => {
+                            if (keyPressSpeed > 20) {
+                                keyPressSpeed -= 10;
+                            }
+                        }, 200);
+                    }
+                }
+            } 
+            // W/A/S/D 键在当前播放位置添加节拍点
+            else if (e.key === 'w' || e.key === 'a' || e.key === 's' || e.key === 'd') {
+                // 找到第一个未锁定的数据集
+                const unlockedDatasetIndex = datasets.value.findIndex(d => !d.locked);
+                if (unlockedDatasetIndex === -1) {
+                    layer.msg('所有数据集都已锁定，无法添加节拍点', { icon: 2 });
+                    return;
+                }
+                
+                const currentTime = waveform.getCurrentTime();
+                const dataset = datasets.value[unlockedDatasetIndex];
+                
+                // 生成新的region ID
+                const existingRegions = wfRegion.getRegions().filter(r => {
+                    const regionDatasetIndex = parseInt(r.id.split('-')[1]);
+                    return regionDatasetIndex === unlockedDatasetIndex;
+                });
+                const newIndex = existingRegions.length;
+                
+                const region = wfRegion.addRegion({
+                    start: currentTime,
+                    end: currentTime + 0.01,
+                    content: `${currentTime.toFixed(2)}s`,
+                    color: dataset.color,
+                    drag: true,
+                    resize: false,
+                    id: `beat-${unlockedDatasetIndex}-${newIndex}`,
+                    attributes: {
+                        'data-dataset-index': unlockedDatasetIndex,
+                        'data-time': `${currentTime.toFixed(2)}s`
+                    }
+                });
+                
+                setupRegionEvents(region, waveform, unlockedDatasetIndex);
+                
+                addToHistory({
+                    type: 'add',
+                    regionId: region.id,
+                    datasetIndex: unlockedDatasetIndex,
+                    data: {
+                        start: currentTime,
+                        end: currentTime + 0.01,
+                        content: `${currentTime.toFixed(2)}s`,
+                        color: dataset.color
+                    }
+                });
+                
+                layer.msg(`已添加节拍点到 ${dataset.creatorName}`, { icon: 1, time: 1000 });
+            }
+        };
+        
+        const keyupHandler = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                if (keyPressInterval) {
+                    clearInterval(keyPressInterval);
+                    keyPressInterval = null;
+                    keyPressSpeed = 100;
+                }
+                
+                // 键盘移动结束时，记录一次移动操作到历史
+                if (keyboardMoveStartPosition !== null && selectedRegion) {
+                    const finalPosition = selectedRegion.start;
+                    if (Math.abs(finalPosition - keyboardMoveStartPosition) > 0.001) {
+                        const regionDatasetIndex = parseInt(selectedRegion.id.split('-')[1]);
+                        addToHistory({
+                            type: 'move',
+                            regionId: selectedRegion.id,
+                            datasetIndex: regionDatasetIndex,
+                            data: {
+                                oldStart: keyboardMoveStartPosition,
+                                oldEnd: keyboardMoveStartPosition + 0.01,
+                                start: finalPosition,
+                                end: finalPosition + 0.01
+                            }
+                        });
+                    }
+                    keyboardMoveStartPosition = null;
+                }
+            }
+        };
+        
+        document.addEventListener('keydown', keydownHandler);
+        document.addEventListener('keyup', keyupHandler);
+        
+        // 组件卸载时清理监听器
+        onUnmounted(() => {
+            document.removeEventListener('keydown', keydownHandler);
+            document.removeEventListener('keyup', keyupHandler);
+            if (keyPressInterval) {
+                clearInterval(keyPressInterval);
+            }
         });
         
     } catch (error) {
@@ -354,16 +1042,27 @@ onMounted(async () => {
 
 .legend-item {
     display: flex;
-    align-items: center;
-    padding: 10px;
+    align-items: flex-start;
+    padding: 15px;
     background: #f5f7fa;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: all 0.3s;
+    border: 2px solid transparent;
 }
 
 .legend-item:hover {
     background: #e8f4ff;
-    transform: translateX(5px);
+    border-color: #409eff;
+}
+
+.legend-item.locked {
+    background: #f0f0f0;
+    opacity: 0.8;
+}
+
+.legend-item.locked:hover {
+    background: #e0e0e0;
+    border-color: #909399;
 }
 
 .legend-color {
@@ -375,10 +1074,28 @@ onMounted(async () => {
     border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
+.legend-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .legend-text {
     font-size: 14px;
     color: #606266;
-    line-height: 1.4;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+.legend-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tips-section {
+    margin-top: 20px;
 }
 
 .control-group {
