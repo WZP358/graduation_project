@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.Map;
 import com.wzp.common.utils.DateUtils;
 import com.wzp.common.utils.SecurityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -28,6 +30,8 @@ import com.wzp.music.domain.Music;
 @Service
 public class BeatdataServiceImpl implements IBeatdataService 
 {
+    private static final Logger logger = LoggerFactory.getLogger(BeatdataServiceImpl.class);
+    
     @Autowired
     private BeatdataMapper beatdataMapper;
 
@@ -39,6 +43,9 @@ public class BeatdataServiceImpl implements IBeatdataService
 
     @Autowired
     private ObjectMapper objectMapper;
+    
+    @Autowired(required = false)
+    private com.wzp.music_anaysis.mapper.BeatExerciseRecordMapper beatExerciseRecordMapper;
 
     /**
      * 查询节拍时刻
@@ -152,6 +159,17 @@ public class BeatdataServiceImpl implements IBeatdataService
     @Override
     public int deleteBeatdataById(Long id)
     {
+        // 先删除关联的练习记录（如果存在BeatExerciseRecordMapper）
+        if (beatExerciseRecordMapper != null) {
+            try {
+                beatExerciseRecordMapper.deleteByBeatdataId(id);
+            } catch (Exception e) {
+                // 如果表不存在或其他错误，忽略
+                logger.warn("删除练习记录失败: " + e.getMessage());
+            }
+        }
+        
+        // 删除节拍数据（如果使用了外键级联，练习记录会自动删除）
         return beatdataMapper.deleteBeatdataById(id);
     }
 }

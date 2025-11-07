@@ -47,6 +47,10 @@ public final class SpringUtils implements BeanFactoryPostProcessor, ApplicationC
     @SuppressWarnings("unchecked")
     public static <T> T getBean(String name) throws BeansException
     {
+        if (beanFactory == null) 
+        {
+            throw new IllegalStateException("SpringUtils.beanFactory尚未初始化，请确保在ApplicationContext完全启动后再调用此方法");
+        }
         return (T) beanFactory.getBean(name);
     }
 
@@ -60,6 +64,10 @@ public final class SpringUtils implements BeanFactoryPostProcessor, ApplicationC
      */
     public static <T> T getBean(Class<T> clz) throws BeansException
     {
+        if (beanFactory == null) 
+        {
+            throw new IllegalStateException("SpringUtils.beanFactory尚未初始化，请确保在ApplicationContext完全启动后再调用此方法");
+        }
         T result = (T) beanFactory.getBean(clz);
         return result;
     }

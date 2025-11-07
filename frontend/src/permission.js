@@ -11,7 +11,7 @@ import usePermissionStore from '@/store/modules/permission'
 
 NProgress.configure({ showSpinner: false })
 
-const whiteList = ['/login', '/register']
+const whiteList = ['/login', '/register', '/beatExercise']
 
 const isWhiteList = (path) => {
   // 特殊处理 /analysis 路径 - 仅 /analysis/:id/:name 格式

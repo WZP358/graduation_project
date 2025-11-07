@@ -4,8 +4,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.wzp.common.constant.UserConstants;
@@ -24,7 +25,7 @@ import com.wzp.system.service.ISysDictTypeService;
  * @author ruoyi
  */
 @Service
-public class SysDictTypeServiceImpl implements ISysDictTypeService
+public class SysDictTypeServiceImpl implements ISysDictTypeService, ApplicationRunner
 {
     @Autowired
     private SysDictTypeMapper dictTypeMapper;
@@ -34,9 +35,10 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService
 
     /**
      * 项目启动时，初始化字典到缓存
+     * 使用ApplicationRunner确保在所有Bean初始化完成后执行
      */
-    @PostConstruct
-    public void init()
+    @Override
+    public void run(ApplicationArguments args) throws Exception
     {
         loadingDictCache();
     }

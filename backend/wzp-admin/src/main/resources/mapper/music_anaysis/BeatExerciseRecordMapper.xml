@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wzp.music_anaysis.mapper.BeatExerciseRecordMapper">
+    
+    <resultMap type="BeatExerciseRecord" id="BeatExerciseRecordResult">
+        <result property="id"    column="id"    />
+        <result property="userId"    column="user_id"    />
+        <result property="userName"    column="user_name"    />
+        <result property="beatdataId"    column="beatdata_id"    />
+        <result property="musicName"    column="music_name"    />
+        <result property="playbackSpeed"    column="playback_speed"    />
+        <result property="practiceMode"    column="practice_mode"    />
+        <result property="accuracy"    column="accuracy"    />
+        <result property="score"    column="score"    />
+        <result property="hitCount"    column="hit_count"    />
+        <result property="totalBeats"    column="total_beats"    />
+        <result property="totalHits"    column="total_hits"    />
+        <result property="avgError"    column="avg_error"    />
+        <result property="maxCombo"    column="max_combo"    />
+        <result property="perfectCount"    column="perfect_count"    />
+        <result property="goodCount"    column="good_count"    />
+        <result property="okCount"    column="ok_count"    />
+        <result property="missCount"    column="miss_count"    />
+        <result property="practiceTime"    column="practice_time"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectBeatExerciseRecordVo">
+        select id, user_id, user_name, beatdata_id, music_name, playback_speed, practice_mode, 
+               accuracy, score, hit_count, total_beats, total_hits, avg_error, max_combo, 
+               perfect_count, good_count, ok_count, miss_count, practice_time, create_time
+        from beat_exercise_record
+    </sql>
+
+    <select id="selectBeatExerciseRecordList" parameterType="BeatExerciseRecord" resultMap="BeatExerciseRecordResult">
+        <include refid="selectBeatExerciseRecordVo"/>
+        <where>  
+            <if test="userId != null">and user_id = #{userId}</if>
+            <if test="beatdataId != null">and beatdata_id = #{beatdataId}</if>
+            <if test="musicName != null and musicName != ''">and music_name like concat('%', #{musicName}, '%')</if>
+            <if test="playbackSpeed != null">and playback_speed = #{playbackSpeed}</if>
+            <if test="practiceMode != null and practiceMode != ''">and practice_mode = #{practiceMode}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectBeatExerciseRecordById" parameterType="Long" resultMap="BeatExerciseRecordResult">
+        <include refid="selectBeatExerciseRecordVo"/>
+        where id = #{id}
+    </select>
+    
+    <!-- 获取排行榜 -->
+    <select id="selectLeaderboard" resultMap="BeatExerciseRecordResult">
+        <include refid="selectBeatExerciseRecordVo"/>
+        where beatdata_id = #{beatdataId}
+        <if test="playbackSpeed != null">and playback_speed = #{playbackSpeed}</if>
+        <if test="practiceMode != null and practiceMode != ''">and practice_mode = #{practiceMode}</if>
+        order by accuracy desc, score desc, avg_error asc
+        limit #{limit}
+    </select>
+    
+    <!-- 获取用户最佳记录 -->
+    <select id="selectUserBestRecord" resultMap="BeatExerciseRecordResult">
+        <include refid="selectBeatExerciseRecordVo"/>
+        where user_id = #{userId} and beatdata_id = #{beatdataId}
+        <if test="playbackSpeed != null">and playback_speed = #{playbackSpeed}</if>
+        <if test="practiceMode != null and practiceMode != ''">and practice_mode = #{practiceMode}</if>
+        order by accuracy desc, score desc
+        limit 1
+    </select>
+    
+    <!-- 根据节拍数据ID删除记录 -->
+    <delete id="deleteByBeatdataId" parameterType="Long">
+        delete from beat_exercise_record where beatdata_id = #{beatdataId}
+    </delete>
+        
+    <insert id="insertBeatExerciseRecord" parameterType="BeatExerciseRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into beat_exercise_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="userName != null">user_name,</if>
+            <if test="beatdataId != null">beatdata_id,</if>
+            <if test="musicName != null">music_name,</if>
+            <if test="playbackSpeed != null">playback_speed,</if>
+            <if test="practiceMode != null">practice_mode,</if>
+            <if test="accuracy != null">accuracy,</if>
+            <if test="score != null">score,</if>
+            <if test="hitCount != null">hit_count,</if>
+            <if test="totalBeats != null">total_beats,</if>
+            <if test="totalHits != null">total_hits,</if>
+            <if test="avgError != null">avg_error,</if>
+            <if test="maxCombo != null">max_combo,</if>
+            <if test="perfectCount != null">perfect_count,</if>
+            <if test="goodCount != null">good_count,</if>
+            <if test="okCount != null">ok_count,</if>
+            <if test="missCount != null">miss_count,</if>
+            <if test="practiceTime != null">practice_time,</if>
+            create_time
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="userName != null">#{userName},</if>
+            <if test="beatdataId != null">#{beatdataId},</if>
+            <if test="musicName != null">#{musicName},</if>
+            <if test="playbackSpeed != null">#{playbackSpeed},</if>
+            <if test="practiceMode != null">#{practiceMode},</if>
+            <if test="accuracy != null">#{accuracy},</if>
+            <if test="score != null">#{score},</if>
+            <if test="hitCount != null">#{hitCount},</if>
+            <if test="totalBeats != null">#{totalBeats},</if>
+            <if test="totalHits != null">#{totalHits},</if>
+            <if test="avgError != null">#{avgError},</if>
+            <if test="maxCombo != null">#{maxCombo},</if>
+            <if test="perfectCount != null">#{perfectCount},</if>
+            <if test="goodCount != null">#{goodCount},</if>
+            <if test="okCount != null">#{okCount},</if>
+            <if test="missCount != null">#{missCount},</if>
+            <if test="practiceTime != null">#{practiceTime},</if>
+            sysdate()
+         </trim>
+    </insert>
+
+    <delete id="deleteBeatExerciseRecordById" parameterType="Long">
+        delete from beat_exercise_record where id = #{id}
+    </delete>
+
+    <delete id="deleteBeatExerciseRecordByIds" parameterType="String">
+        delete from beat_exercise_record where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>
+
