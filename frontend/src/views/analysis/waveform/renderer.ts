@@ -82,6 +82,10 @@ class Renderer extends EventEmitter<RendererEvents> {
 
         // 添加点击事件监听器
         this.wrapper.addEventListener('click', (e) => {
+            // 只有在按住Ctrl键时才允许点击改变播放进度
+            if (!e.ctrlKey) {
+                return // 不触发click事件
+            }
             const [x, y] = getClickPosition(e)
             this.emit('click', x, y)
         })

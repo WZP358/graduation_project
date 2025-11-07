@@ -52,6 +52,7 @@
                         <template #title>
                             <div style="font-size: 13px; line-height: 1.6;">
                                 <div><strong>操作提示：</strong></div>
+                                <div>• <span style="color: #f56c6c;">按住 Ctrl 键</span>再点击波形图改变播放进度</div>
                                 <div>• 按 W/A/S/D 键在当前播放位置添加节拍点</div>
                                 <div>• 拖动节拍点，原标签变灰，绿色预览</div>
                                 <div>• 点击绿色标签确认移动位置</div>
@@ -66,17 +67,189 @@
                 </div>
             </div>
 
-            <div class="control-panel">
-                <h3 class="panel-title">控制面板</h3>
-                
-                <div class="control-group">
-                    <el-button type="primary" id="playPause">播放/暂停</el-button>
-                    <el-button type="warning" @click="goBack">返回</el-button>
+            <div class="right-panel">
+                <div class="control-panel">
+                    <h3 class="panel-title">控制面板</h3>
+                    
+                    <div class="control-group">
+                        <el-button type="primary" id="playPause">播放/暂停</el-button>
+                        <el-button type="warning" @click="goBack">返回</el-button>
+                    </div>
+
+                    <div class="zoom-control">
+                        <label>缩放比例：</label>
+                        <input type="range" min="10" max="400" value="120"></input>
+                    </div>
                 </div>
 
-                <div class="zoom-control">
-                    <label>缩放比例：</label>
-                    <input type="range" min="10" max="400" value="120"></input>
+                <!-- 节拍误差统计面板 -->
+                <div class="statistics-panel" v-if="datasets.length >= 2">
+                <h3 class="panel-title">节拍误差统计</h3>
+                
+                <div class="stats-controls">
+                    <div class="tolerance-setting">
+                        <label>误差容差：</label>
+                        <el-select v-model="toleranceMs" @change="calculateStatistics" size="small">
+                            <el-option label="±20ms（严格）" :value="20"></el-option>
+                            <el-option label="±50ms（标准）" :value="50"></el-option>
+                            <el-option label="±100ms（宽松）" :value="100"></el-option>
+                            <el-option label="±200ms（非常宽松）" :value="200"></el-option>
+                        </el-select>
+                    </div>
+                    
+                    <div class="reference-setting">
+                        <label>参考数据集：</label>
+                        <el-select v-model="referenceDatasetIndex" @change="calculateStatistics" size="small">
+                            <el-option 
+                                v-for="(dataset, index) in datasets" 
+                                :key="index"
+                                :label="`${dataset.creatorName} (${dataset.detectionMode})`"
+                                :value="index"
+                            ></el-option>
+                        </el-select>
+                    </div>
+                    
+                    <el-button 
+                        type="primary" 
+                        size="small" 
+                        @click="calculateStatistics"
+                        style="width: 100%;"
+                        :class="{ 'button-pulse': statisticsNeedUpdate }"
+                    >
+                        {{ statisticsNeedUpdate ? '⚠ 数据已修改，重新计算' : '重新计算统计' }}
+                    </el-button>
+                </div>
+
+                <div class="stats-results" v-if="statistics">
+                    <div class="stats-summary">
+                        <el-alert type="info" :closable="false" style="margin-bottom: 15px;">
+                            <template #title>
+                                <div style="font-size: 12px; line-height: 1.6;">
+                                    <div>📊 以 <strong>{{ datasets[referenceDatasetIndex]?.creatorName }}</strong> 为参考基准</div>
+                                    <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                                        <div>• <strong>召回率</strong>：参考数据集有多少被找到</div>
+                                        <div>• <strong>精确率</strong>：目标数据集有多少是有效匹配（防止垃圾数据）</div>
+                                        <div>• <strong>F1分数</strong>：综合评分，越高越好 ⭐</div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-alert>
+                    </div>
+
+                    <div class="stats-table">
+                        <el-table :data="statistics.comparisonResults" size="small" border>
+                            <el-table-column label="数据集" min-width="100">
+                                <template #default="scope">
+                                    <div style="display: flex; align-items: center; gap: 5px;">
+                                        <div 
+                                            :style="{ 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                backgroundColor: scope.row.color,
+                                                borderRadius: '2px'
+                                            }"
+                                        ></div>
+                                        <span style="font-size: 12px;">{{ scope.row.name }}</span>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="召回率" width="80" align="center">
+                                <template #default="scope">
+                                    <el-tag 
+                                        :type="scope.row.recall >= 90 ? 'success' : scope.row.recall >= 70 ? 'warning' : 'danger'"
+                                        size="small"
+                                    >
+                                        {{ scope.row.recall }}%
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="精确率" width="80" align="center">
+                                <template #default="scope">
+                                    <el-tag 
+                                        :type="scope.row.precision >= 90 ? 'success' : scope.row.precision >= 70 ? 'warning' : 'danger'"
+                                        size="small"
+                                    >
+                                        {{ scope.row.precision }}%
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="F1分数" width="80" align="center">
+                                <template #default="scope">
+                                    <el-tag 
+                                        :type="scope.row.f1Score >= 90 ? 'success' : scope.row.f1Score >= 70 ? 'warning' : 'danger'"
+                                        size="small"
+                                    >
+                                        {{ scope.row.f1Score }}%
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="节拍数" width="80" align="center">
+                                <template #default="scope">
+                                    {{ scope.row.totalBeats }}
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="平均误差" width="85" align="center">
+                                <template #default="scope">
+                                    {{ scope.row.avgError }}ms
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+
+                    <div class="detailed-stats" style="margin-top: 15px;">
+                        <el-collapse v-model="activeCollapse">
+                            <el-collapse-item title="详细误差分布" name="1">
+                                <div v-for="(result, index) in statistics.comparisonResults" :key="index" class="error-distribution">
+                                    <h4 style="font-size: 13px; margin: 10px 0 5px 0;">
+                                        {{ result.name }}
+                                    </h4>
+                                    <div class="error-bars">
+                                        <div class="error-bar-item">
+                                            <span class="bar-label">0-20ms:</span>
+                                            <div class="bar-container">
+                                                <div 
+                                                    class="bar-fill" 
+                                                    :style="{ width: result.errorDistribution.range0_20 + '%', backgroundColor: '#67c23a' }"
+                                                ></div>
+                                                <span class="bar-value">{{ result.errorDistribution.range0_20 }}%</span>
+                                            </div>
+                                        </div>
+                                        <div class="error-bar-item">
+                                            <span class="bar-label">20-50ms:</span>
+                                            <div class="bar-container">
+                                                <div 
+                                                    class="bar-fill" 
+                                                    :style="{ width: result.errorDistribution.range20_50 + '%', backgroundColor: '#95d475' }"
+                                                ></div>
+                                                <span class="bar-value">{{ result.errorDistribution.range20_50 }}%</span>
+                                            </div>
+                                        </div>
+                                        <div class="error-bar-item">
+                                            <span class="bar-label">50-100ms:</span>
+                                            <div class="bar-container">
+                                                <div 
+                                                    class="bar-fill" 
+                                                    :style="{ width: result.errorDistribution.range50_100 + '%', backgroundColor: '#e6a23c' }"
+                                                ></div>
+                                                <span class="bar-value">{{ result.errorDistribution.range50_100 }}%</span>
+                                            </div>
+                                        </div>
+                                        <div class="error-bar-item">
+                                            <span class="bar-label">>100ms:</span>
+                                            <div class="bar-container">
+                                                <div 
+                                                    class="bar-fill" 
+                                                    :style="{ width: result.errorDistribution.rangeOver100 + '%', backgroundColor: '#f56c6c' }"
+                                                ></div>
+                                                <span class="bar-value">{{ result.errorDistribution.rangeOver100 }}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-collapse-item>
+                        </el-collapse>
+                    </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -113,6 +286,13 @@ let keyboardMoveStartPosition = null; // 键盘移动开始位置
 
 const datasets = ref([]);
 
+// 节拍误差统计相关
+const toleranceMs = ref(50); // 默认容差 50ms
+const referenceDatasetIndex = ref(0); // 默认第一个数据集为参考基准
+const statistics = ref(null);
+const activeCollapse = ref(['1']); // 默认展开误差分布
+const statisticsNeedUpdate = ref(false); // 标记统计是否需要更新
+
 // 操作历史记录系统
 interface HistoryAction {
     type: 'add' | 'move' | 'delete'
@@ -146,6 +326,140 @@ const distinctColors = [
 
 function goBack() {
     router.back();
+}
+
+// 计算节拍误差统计
+function calculateStatistics() {
+    if (!wfRegionInstance || datasets.value.length < 2) {
+        layer.msg('需要至少2个数据集才能进行统计', { icon: 2 });
+        return;
+    }
+    
+    const tolerance = toleranceMs.value / 1000; // 转换为秒
+    const refIndex = referenceDatasetIndex.value;
+    const regions = wfRegionInstance.getRegions();
+    
+    // 重置更新标记
+    statisticsNeedUpdate.value = false;
+    
+    // 获取参考数据集的节拍时间
+    const refBeats = regions
+        .filter(r => {
+            const regionDatasetIndex = parseInt(r.id.split('-')[1]);
+            return regionDatasetIndex === refIndex;
+        })
+        .map(r => r.start)
+        .sort((a, b) => a - b);
+    
+    const comparisonResults = [];
+    
+    // 对每个数据集进行比较
+    datasets.value.forEach((dataset, index) => {
+        if (index === refIndex) {
+            // 参考数据集自己，所有指标都是100%
+            comparisonResults.push({
+                name: dataset.creatorName,
+                color: dataset.color,
+                recall: 100,
+                precision: 100,
+                f1Score: 100,
+                totalBeats: refBeats.length,
+                avgError: 0,
+                maxError: 0,
+                errorDistribution: {
+                    range0_20: 100,
+                    range20_50: 0,
+                    range50_100: 0,
+                    rangeOver100: 0
+                }
+            });
+            return;
+        }
+        
+        // 获取当前数据集的节拍时间
+        const currentBeats = regions
+            .filter(r => {
+                const regionDatasetIndex = parseInt(r.id.split('-')[1]);
+                return regionDatasetIndex === index;
+            })
+            .map(r => r.start)
+            .sort((a, b) => a - b);
+        
+        // === 第一步：正向匹配（参考 -> 目标）===
+        // 对于参考数据集的每个节拍点，找到当前数据集中最接近的点
+        const errors = [];
+        let truePositives = 0; // 真正例：参考点找到了匹配
+        const usedIndices = new Set();
+        
+        refBeats.forEach(refBeat => {
+            let minError = Infinity;
+            let minIndex = -1;
+            
+            currentBeats.forEach((currentBeat, i) => {
+                if (usedIndices.has(i)) return;
+                const error = Math.abs(currentBeat - refBeat);
+                if (error < minError) {
+                    minError = error;
+                    minIndex = i;
+                }
+            });
+            
+            if (minIndex !== -1 && minError <= tolerance) {
+                truePositives++;
+                errors.push(minError * 1000); // 转换为毫秒
+                usedIndices.add(minIndex);
+            }
+        });
+        
+        // === 第二步：计算精确率和召回率 ===
+        // 召回率 (Recall) = TP / (TP + FN) = 匹配数 / 参考总数
+        const recall = refBeats.length > 0 ? Math.round((truePositives / refBeats.length) * 100) : 0;
+        
+        // 精确率 (Precision) = TP / (TP + FP) = 匹配数 / 目标总数
+        // 这里可以防止"每1ms打一个标签"的作弊行为
+        const precision = currentBeats.length > 0 ? Math.round((truePositives / currentBeats.length) * 100) : 0;
+        
+        // F1分数 = 2 * (Precision * Recall) / (Precision + Recall)
+        // F1分数综合考虑了精确率和召回率
+        const f1Score = (precision + recall) > 0 
+            ? Math.round((2 * precision * recall) / (precision + recall)) 
+            : 0;
+        
+        const avgError = errors.length > 0 ? Math.round(errors.reduce((a, b) => a + b, 0) / errors.length) : 0;
+        const maxError = errors.length > 0 ? Math.round(Math.max(...errors)) : 0;
+        
+        // 计算误差分布
+        const range0_20 = errors.filter(e => e <= 20).length;
+        const range20_50 = errors.filter(e => e > 20 && e <= 50).length;
+        const range50_100 = errors.filter(e => e > 50 && e <= 100).length;
+        const rangeOver100 = errors.filter(e => e > 100).length;
+        const total = errors.length || 1;
+        
+        comparisonResults.push({
+            name: dataset.creatorName,
+            color: dataset.color,
+            recall: recall,           // 召回率
+            precision: precision,     // 精确率
+            f1Score: f1Score,         // F1分数（综合指标）
+            totalBeats: currentBeats.length,  // 该数据集总节拍数
+            avgError: avgError,
+            maxError: maxError,
+            errorDistribution: {
+                range0_20: Math.round((range0_20 / total) * 100),
+                range20_50: Math.round((range20_50 / total) * 100),
+                range50_100: Math.round((range50_100 / total) * 100),
+                rangeOver100: Math.round((rangeOver100 / total) * 100)
+            }
+        });
+    });
+    
+    statistics.value = {
+        comparisonResults: comparisonResults,
+        referenceDataset: datasets.value[refIndex].creatorName,
+        tolerance: toleranceMs.value
+    };
+    
+    layer.msg('统计计算完成', { icon: 1 });
 }
 
 // 切换锁定状态
@@ -231,6 +545,9 @@ function addToHistory(action: HistoryAction) {
         actionHistory.shift();
     }
     console.log('记录操作:', action, '当前历史记录数:', actionHistory.length);
+    
+    // 标记统计需要更新
+    statisticsNeedUpdate.value = true;
 }
 
 // 撤回最后一次操作
@@ -305,6 +622,9 @@ async function undoLastAction() {
                 layer.msg('已撤回删除操作', { icon: 1 });
             }
         }
+        
+        // 标记统计需要更新
+        statisticsNeedUpdate.value = true;
     } catch (error) {
         console.log('用户取消了撤回操作');
     }
@@ -739,6 +1059,11 @@ onMounted(async () => {
             }
             
             console.log('所有节拍数据加载完成，数据集:', datasets.value);
+            
+            // 数据加载完成后自动计算统计
+            setTimeout(() => {
+                calculateStatistics();
+            }, 500);
         });
 
         const playPause = document.getElementById('playPause');
@@ -1015,14 +1340,20 @@ onMounted(async () => {
     overflow-y: auto;
 }
 
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 480px;
+    min-width: 480px;
+    overflow-y: auto;
+}
+
 .control-panel {
-    width: 280px;
-    min-width: 280px;
     background: white;
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
 }
 
 .panel-title {
@@ -1119,5 +1450,113 @@ onMounted(async () => {
 
 .zoom-control input[type="range"] {
     width: 100%;
+}
+
+/* 节拍误差统计面板样式 */
+.statistics-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stats-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.tolerance-setting,
+.reference-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tolerance-setting label,
+.reference-setting label {
+    font-size: 13px;
+    color: #606266;
+    font-weight: 500;
+}
+
+.stats-table {
+    margin-top: 15px;
+}
+
+.error-distribution {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 6px;
+}
+
+.error-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.error-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bar-label {
+    font-size: 12px;
+    color: #606266;
+    min-width: 70px;
+    font-weight: 500;
+}
+
+.bar-container {
+    position: relative;
+    flex: 1;
+    height: 20px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 5px;
+}
+
+.bar-value {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #333;
+    font-weight: 600;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+/* 按钮脉冲动画 */
+@keyframes button-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(245, 108, 108, 0);
+    }
+}
+
+.button-pulse {
+    animation: button-pulse 1.5s infinite;
+    background-color: #f56c6c !important;
+    border-color: #f56c6c !important;
+}
+
+.button-pulse:hover {
+    background-color: #f78989 !important;
+    border-color: #f78989 !important;
 }
 </style>
