@@ -1,57 +1,92 @@
 <template>
     <div class="analysis-page">
-        <div class="waveform-container">
+        <div class="waveform-container-top">
             <div id="waveform" ref="waveform"></div>
         </div>
 
-        <div class="content-wrapper">
-            <div class="chart-section">
-                <Result ref="RefResult" :speedArray="speedArray"></Result>
+        <div class="chart-section-fullwidth">
+            <Result ref="RefResult" 
+                    :speedArray="speedArray" 
+                    :currentProgress="currentBeat"
+                    :currentTime="currentPlayTime"
+                    :beatTimes="beatTimes"
+                    :audioDuration="audioDuration"
+                    :visibleTimeRange="visibleTimeRange"
+                    :displayWindow="10"></Result>
+        </div>
+
+        <!-- 底部固定控制栏 -->
+        <div class="bottom-control-bar">
+            <div class="primary-controls">
+                <el-button type="primary" size="large" @click="handlePlayPause">
+                    <svg viewBox="0 0 1024 1024" width="18" height="18" style="vertical-align: middle; margin-right: 6px;">
+                        <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64z m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z" fill="currentColor"/>
+                        <path d="M719.4 499.1l-296.1-215A15.9 15.9 0 0 0 398 297v430c0 13.1 14.8 20.5 25.3 12.9l296.1-215a15.9 15.9 0 0 0 0-25.8z m-257.6 134V390.9L628.5 512 461.8 633.1z" fill="currentColor"/>
+                    </svg>
+                    播放/暂停
+                </el-button>
+                <el-button type="warning" size="large" @click="saveBeats()">
+                    <svg viewBox="0 0 1024 1024" width="18" height="18" style="vertical-align: middle; margin-right: 6px;">
+                        <path d="M893.3 293.3L730.7 130.7c-7.5-7.5-16.7-13-26.7-16V112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V338.5c0-17-6.7-33.2-18.7-45.2zM384 184h256v104H384V184z m456 656H184V184h136v136c0 17.7 14.3 32 32 32h320c17.7 0 32-14.3 32-32V205.8l136 136V840z" fill="currentColor"/>
+                        <path d="M512 442c-79.5 0-144 64.5-144 144s64.5 144 144 144 144-64.5 144-144-64.5-144-144-144z m0 224c-44.2 0-80-35.8-80-80s35.8-80 80-80 80 35.8 80 80-35.8 80-80 80z" fill="currentColor"/>
+                    </svg>
+                    保存节拍修改
+                </el-button>
             </div>
 
-            <div class="control-panel">
-                <h3 class="panel-title">控制面板</h3>
-                
-                <div class="control-group">
-                    <el-button type="primary" id="playPause">播放/暂停</el-button>
-                    <el-button type="warning" @click="saveBeats()">保存节拍修改</el-button>
+            <div class="secondary-controls">
+                <div class="control-item">
+                    <label>缩放: {{ zoomLevel }}%</label>
+                    <el-slider 
+                        v-model="zoomLevel" 
+                        :min="10" 
+                        :max="400" 
+                        style="width: 120px;"/>
                 </div>
-
-                <div class="zoom-control">
-                    <label>缩放比例：</label>
-                    <input type="range" min="10" max="400" value="120" id="zoomSlider"></input>
+                <div class="control-item">
+                    <label>速度: {{ playbackSpeed }}x</label>
+                    <el-slider 
+                        v-model="playbackSpeed"
+                        :min="0.25" 
+                        :max="2" 
+                        :step="0.05"
+                        style="width: 120px;"
+                        @change="setSpeed(playbackSpeed)"/>
                 </div>
-
-                <div class="speed-control">
-                    <label>播放速度：<span class="speed-value">{{ playbackSpeed }}x</span></label>
-                    <input 
-                        type="range" 
-                        min="0.25" 
-                        max="2" 
-                        step="0.05" 
-                        :value="playbackSpeed" 
-                        @input="onSpeedChange"
-                        id="speedSlider"
-                    />
-                    <div class="speed-presets">
-                        <el-button size="small" @click="setSpeed(0.5)" :type="isSpeedActive(0.5) ? 'primary' : ''">0.5x</el-button>
-                        <el-button size="small" @click="setSpeed(0.75)" :type="isSpeedActive(0.75) ? 'primary' : ''">0.75x</el-button>
-                        <el-button size="small" @click="setSpeed(1)" :type="isSpeedActive(1) ? 'primary' : ''">1x</el-button>
-                        <el-button size="small" @click="setSpeed(1.25)" :type="isSpeedActive(1.25) ? 'primary' : ''">1.25x</el-button>
-                        <el-button size="small" @click="setSpeed(1.5)" :type="isSpeedActive(1.5) ? 'primary' : ''">1.5x</el-button>
-                    </div>
+                <div class="speed-presets">
+                    <el-button 
+                        v-for="speed in [0.5, 0.75, 1, 1.25, 1.5]" 
+                        :key="speed"
+                        size="small" 
+                        @click="setSpeed(speed)"
+                        :type="Math.abs(playbackSpeed - speed) < 0.01 ? 'primary' : ''">
+                        {{ speed }}x
+                    </el-button>
                 </div>
                 
-                <Options v-model:options="myOptions"></Options>
+                <!-- 选项按钮 -->
+                <el-button size="small" @click="toggleOptions" style="margin-left: 15px;">
+                    <svg viewBox="0 0 1024 1024" width="16" height="16" style="vertical-align: middle; margin-right: 4px;">
+                        <path d="M512.5 390.6c-29.9 0-57.9 11.6-79.1 32.8-21.1 21.2-32.8 49.2-32.8 79.1 0 29.9 11.7 57.9 32.8 79.1 21.2 21.1 49.2 32.8 79.1 32.8 29.9 0 57.9-11.7 79.1-32.8 21.1-21.2 32.8-49.2 32.8-79.1 0-29.9-11.7-57.9-32.8-79.1a110.96 110.96 0 0 0-79.1-32.8zm412.3 235.5l-65.4-55.9c3.1-19 4.7-38.4 4.7-57.7s-1.6-38.8-4.7-57.7l65.4-55.9a32.03 32.03 0 0 0 9.3-35.2l-.9-2.6a442.5 442.5 0 0 0-79.6-137.7l-1.8-2.1a32.12 32.12 0 0 0-35.1-9.5l-81.2 28.9c-30-24.6-63.4-44-99.6-57.5l-15.7-84.9a32.05 32.05 0 0 0-25.8-25.7l-2.7-.5c-52-9.4-106.8-9.4-158.8 0l-2.7.5a32.05 32.05 0 0 0-25.8 25.7l-15.8 85.3a353.44 353.44 0 0 0-98.9 57.3l-81.8-29.1a32 32 0 0 0-35.1 9.5l-1.8 2.1a445.93 445.93 0 0 0-79.6 137.7l-.9 2.6c-4.5 12.5-.8 26.5 9.3 35.2l66.2 56.5c-3.1 18.8-4.6 38-4.6 57 0 19.2 1.5 38.4 4.6 57l-66 56.5a32.03 32.03 0 0 0-9.3 35.2l.9 2.6c18.1 50.3 44.8 96.8 79.6 137.7l1.8 2.1a32.12 32.12 0 0 0 35.1 9.5l81.8-29.1c29.8 24.5 63 43.9 98.9 57.3l15.8 85.3a32.05 32.05 0 0 0 25.8 25.7l2.7.5a448.27 448.27 0 0 0 158.8 0l2.7-.5a32.05 32.05 0 0 0 25.8-25.7l15.7-84.9c36.2-13.6 69.6-32.9 99.6-57.5l81.2 28.9a32 32 0 0 0 35.1-9.5l1.8-2.1c34.8-41.1 61.5-87.4 79.6-137.7l.9-2.6c4.3-12.4.6-26.3-9.5-35zm-412.3 52.2c-97.1 0-175.8-78.7-175.8-175.8s78.7-175.8 175.8-175.8 175.8 78.7 175.8 175.8-78.7 175.8-175.8 175.8z" fill="currentColor"/>
+                    </svg>
+                    {{ showOptions ? '隐藏选项' : '显示选项' }}
+                </el-button>
             </div>
         </div>
+
+        <!-- 可展开的选项面板 -->
+        <transition name="slide-up">
+            <div v-show="showOptions" class="options-panel-expandable">
+                <Options v-model:options="myOptions"></Options>
+            </div>
+        </transition>
     </div>
 </template>
 
 <script setup lang="ts">  
 import { useRoute } from 'vue-router';
 import { layer } from '@layui/layer-vue'
-import { onMounted, ref, onUnmounted, onBeforeMount, reactive, watchEffect } from 'vue';
+import { onMounted, ref, onUnmounted, reactive, watchEffect } from 'vue';
 import { ElMessageBox } from 'element-plus'
 import WaveForm from '@/views/analysis/waveform/waveform';
 import SpectrogramPlugin from '@/views/analysis/waveform/plugins/spectrogram';
@@ -63,6 +98,18 @@ import Result from './components/Result.vue';
 import { getBeatdataByMusicName, updateBeatdata, addBeatdata } from '@/api/music_anaysis/beatdata';
 
 const RefResult = ref(null)
+const currentBeat = ref<number | null>(0)
+const currentPlayTime = ref<number>(0)
+const beatTimes = ref<number[]>([])
+const audioDuration = ref<number>(0)
+const visibleTimeRange = ref<{start: number, end: number}>({start: 0, end: 0})
+const zoomLevel = ref(120)
+const showOptions = ref(false)
+
+function toggleOptions() {
+    showOptions.value = !showOptions.value
+}
+
 function callRedraw() {
     RefResult.value.redraw()
 }
@@ -269,11 +316,6 @@ function caculateSpeed(startTime: number, endTime: number): number {
 }
 
 // 播放速度控制函数
-function onSpeedChange(e: Event) {
-    const speed = parseFloat((e.target as HTMLInputElement).value)
-    setSpeed(speed)
-}
-
 function setSpeed(speed: number) {
     playbackSpeed.value = speed
     if (waveformInstance) {
@@ -282,14 +324,61 @@ function setSpeed(speed: number) {
     }
 }
 
-// 判断当前速度是否与按钮速度匹配
-function isSpeedActive(speed: number): boolean {
-    // 使用小的误差范围来比较浮点数
-    return Math.abs(playbackSpeed.value - speed) < 0.01
+// 播放/暂停控制
+function handlePlayPause() {
+    if (waveformInstance) {
+        waveformInstance.playPause()
+    }
+}
+
+// 更新当前播放时间和节拍（用于进度同步）
+function updateCurrentBeat(currentTime: number) {
+    // 更新当前播放时间
+    currentPlayTime.value = currentTime
+    
+    if (!wfRegionInstance) {
+        currentBeat.value = 0
+        return
+    }
+    
+    const regions = wfRegionInstance.getRegions()
+    if (regions.length === 0) {
+        currentBeat.value = 0
+        return
+    }
+    
+    // 找到当前时间之前的最近节拍
+    let currentBeatIndex = 0
+    for (let i = 0; i < regions.length; i++) {
+        if (regions[i].start <= currentTime) {
+            currentBeatIndex = i + 1 // 节拍从1开始计数
+        } else {
+            break
+        }
+    }
+    
+    currentBeat.value = currentBeatIndex
 }
 
 onMounted(async () => {
     console.log('onMounted 开始执行')
+    
+    // 自动进入全屏
+    const docElement = document.documentElement
+    try {
+        if (docElement.requestFullscreen) {
+            await docElement.requestFullscreen()
+        } else if ((docElement as any).webkitRequestFullscreen) {
+            await (docElement as any).webkitRequestFullscreen()
+        } else if ((docElement as any).mozRequestFullScreen) {
+            await (docElement as any).mozRequestFullScreen()
+        } else if ((docElement as any).msRequestFullscreen) {
+            await (docElement as any).msRequestFullscreen()
+        }
+        console.log('已进入全屏模式')
+    } catch (error) {
+        console.log('全屏请求被拒绝或不支持:', error)
+    }
     
     const container = document.getElementById('waveform')
     console.log('waveform容器:', container)
@@ -378,8 +467,31 @@ onMounted(async () => {
         layer.msg('已添加节拍点，请点击"保存节拍修改"保存', { icon: 1 })
     })
 
+    // 监听波形图滚动事件，同步可见时间范围
+    waveform.on('scroll', (visibleStartTime, visibleEndTime) => {
+        visibleTimeRange.value = {
+            start: visibleStartTime,
+            end: visibleEndTime
+        }
+    })
+    
+    // 监听播放进度，更新当前节拍
+    waveform.on('timeupdate', (currentTime) => {
+        updateCurrentBeat(currentTime)
+    })
+
     waveform.once('decode', async () => {
         console.log('音频解码完成')
+        
+        // 获取音频总时长
+        audioDuration.value = waveform.getDuration()
+        console.log('音频总时长:', audioDuration.value)
+        
+        // 初始化可见时间范围
+        visibleTimeRange.value = {
+            start: 0,
+            end: audioDuration.value
+        }
         
         if (!isCreateMode) {
             console.log('开始加载节拍数据')
@@ -391,11 +503,12 @@ onMounted(async () => {
                 
                 if (response.rows && response.rows.length > 0) {
                     currentBeatData = response.rows[0]
-                    const beatTimes = JSON.parse(currentBeatData.beatTimes);
-                    console.log('加载节拍数据:', beatTimes);
-                    console.log('节拍数量:', beatTimes.length);
+                    const loadedBeatTimes = JSON.parse(currentBeatData.beatTimes);
+                    beatTimes.value = loadedBeatTimes;
+                    console.log('加载节拍数据:', loadedBeatTimes);
+                    console.log('节拍数量:', loadedBeatTimes.length);
                     
-                    beatTimes.forEach((time, index) => {
+                    loadedBeatTimes.forEach((time, index) => {
                         const region = wfRegion.addRegion({
                             start: time,
                             end: time + 0.01,
@@ -408,17 +521,21 @@ onMounted(async () => {
                         setupRegionEvents(region, waveform)
                     });
                     
-                    for (let i = 1; i < beatTimes.length; i++) {
-                        const interval = beatTimes[i] - beatTimes[i - 1];
+                    for (let i = 1; i < loadedBeatTimes.length; i++) {
+                        const interval = loadedBeatTimes[i] - loadedBeatTimes[i - 1];
                         const bpm = 60 / interval;
                         speedArray.push([i, bpm]);
                     }
                     console.log('速度曲线数据:', speedArray);
                     
                     if (speedArray.length > 0 && RefResult.value) {
+                        // 等待 DOM 更新和容器渲染完成后再绘制
                         setTimeout(() => {
-                            RefResult.value.redraw();
-                        }, 100);
+                            if (RefResult.value) {
+                                console.log('开始绘制速度曲线图')
+                                RefResult.value.redraw();
+                            }
+                        }, 300);
                     }
                 } else {
                     console.warn('未找到节拍数据，响应:', response);
@@ -431,24 +548,11 @@ onMounted(async () => {
             layer.msg('请通过双击波形或按w/a/s/d键添加节拍点', { icon: 1, time: 3000 })
         }
 
-        const playPause = document.getElementById('playPause')
-        playPause?.addEventListener('click', () => {
-            waveform.playPause()
-        })
-        const slider = document.querySelector('input[type="range"]')
-        slider?.addEventListener('input', (e) => {
-            const zoomLevel = Number((e.target as HTMLInputElement).value)
-            waveform.zoom(zoomLevel)
-        })
-        const getRegions = document.getElementById('getRegions')
-        getRegions?.addEventListener('click', () => {
-            console.log(wfRegion)
-        })
-        const clearRegions = document.getElementById('clearRegions')
-        clearRegions?.addEventListener('click', () => {
-            wfRegion.clearRegions()
-            lastBitPosition = 0
-            bitCount = 0
+        // 缩放级别变化时更新波形图
+        watchEffect(() => {
+            if (waveform && zoomLevel.value) {
+                waveform.zoom(zoomLevel.value)
+            }
         })
     })
 
@@ -726,6 +830,16 @@ onMounted(async () => {
     let keyboardMoveStartPosition = null // 保存键盘移动开始时的位置
     
     const keydownHandler = (e: KeyboardEvent) => {
+        // ESC 键退出全屏
+        if (e.key === 'Escape') {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => {
+                    console.log('退出全屏失败:', err)
+                })
+            }
+            return
+        }
+        
         // Ctrl+Z 撤回功能
         if (e.ctrlKey && e.key === 'z') {
             e.preventDefault()
@@ -845,22 +959,20 @@ onMounted(async () => {
     min-height: 100vh;
     height: 100vh;
     background: #f5f7fa;
-    padding: 20px;
+    padding: 15px;
+    padding-bottom: 0;
     box-sizing: border-box;
     overflow: hidden;
 }
 
-.waveform-container {
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: 35vh;
-    min-height: 250px;
+.waveform-container-top {
+    margin-bottom: 15px;
+    flex: 0 0 auto;
+    height: 200px;
     display: flex;
     flex-direction: column;
 }
+
 
 #waveform {
     width: 100%;
@@ -897,141 +1009,105 @@ onMounted(async () => {
     width: 2px;
 }
 
-.content-wrapper {
-    display: flex;
-    gap: 20px;
+.chart-section-fullwidth {
     flex: 1;
+    margin-bottom: 56px;
     min-height: 0;
-}
-
-.chart-section {
-    flex: 1;
-    background: white;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: auto;
 }
 
-.control-panel {
-
-    width: 30vw;
-    min-width: 280px;
+/* 可展开的选项面板 */
+.options-panel-expandable {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
     background: white;
     border-radius: 8px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    z-index: 998;
+    max-width: 90%;
+    width: 800px;
+    max-height: 60vh;
     overflow-y: auto;
 }
 
-.panel-title {
-    margin: 0 0 20px 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-    border-bottom: 2px solid #1890ff;
-    padding-bottom: 10px;
+.slide-up-enter-active,
+.slide-up-leave-active {
+    transition: all 0.3s ease;
 }
 
-.control-group {
+.slide-up-enter-from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+}
+
+.slide-up-leave-to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+}
+
+/* 底部固定控制栏 */
+.bottom-control-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 8px 16px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 999;
+    gap: 20px;
+}
+
+.primary-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.secondary-controls {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.control-item {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 5px;
 }
 
-.zoom-control {
-    margin-bottom: 20px;
-}
-
-.zoom-control label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-    color: #606266;
+.control-item label {
+    font-size: 12px;
+    color: #303133;
     font-weight: 500;
-}
-
-.zoom-control input[type="range"] {
-    width: 100%;
-}
-
-.speed-control {
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border: 1px solid #e4e7ed;
-}
-
-.speed-control label {
-    display: block;
-    margin-bottom: 10px;
-    font-size: 14px;
-    color: #606266;
-    font-weight: 500;
-}
-
-.speed-value {
-    color: #1890ff;
-    font-weight: 700;
-    font-size: 16px;
-    margin-left: 8px;
-}
-
-.speed-control input[type="range"] {
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: linear-gradient(to right, #409EFF 0%, #67C23A 100%);
-    outline: none;
-    margin-bottom: 12px;
-}
-
-.speed-control input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #409EFF;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(64, 158, 255, 0.5);
-    transition: all 0.3s ease;
-}
-
-.speed-control input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-    box-shadow: 0 3px 8px rgba(64, 158, 255, 0.7);
-}
-
-.speed-control input[type="range"]::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #409EFF;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 6px rgba(64, 158, 255, 0.5);
-    transition: all 0.3s ease;
-}
-
-.speed-control input[type="range"]::-moz-range-thumb:hover {
-    transform: scale(1.2);
-    box-shadow: 0 3px 8px rgba(64, 158, 255, 0.7);
+    white-space: nowrap;
 }
 
 .speed-presets {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 5px;
 }
 
-.speed-presets .el-button {
-    flex: 1;
-    min-width: 50px;
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .bottom-control-bar {
+        flex-wrap: wrap;
+        padding: 12px 20px;
+    }
+    
+    .secondary-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
 }
 
 
